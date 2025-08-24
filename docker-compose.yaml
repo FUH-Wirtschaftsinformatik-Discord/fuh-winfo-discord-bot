@@ -7,7 +7,5 @@ services:
     build: .
     env_file:
       - docker.env
-    # environment:
-    #   - PYTHONUNBUFFERED=1
     volumes:
       - ./data:/app/data
