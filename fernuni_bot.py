@@ -136,5 +136,4 @@ async def on_thread_create(thread: Thread) -> None:
     msg = await thread.send(f"<@&{thread_notification_role_id}>")
     await msg.delete()
 
-
 bot.run(TOKEN)
