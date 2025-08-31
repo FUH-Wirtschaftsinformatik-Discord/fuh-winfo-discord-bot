@@ -17,6 +17,7 @@ class Welcome(commands.Cog):
 
         welcome_message = f"""
         Hey {member.mention}, 
+        Hey {member.mention}, 
 schön, dass du hergefunden hast :nerd: 
 
 Unsere Serverregeln findest du hier: <#{os.getenv('DISCORD_RULE_CHANNEL')}> 
