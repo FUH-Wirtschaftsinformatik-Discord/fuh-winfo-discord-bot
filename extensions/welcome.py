@@ -3,52 +3,16 @@ import os
 from discord import Member
 from discord.ext import commands
 
-
 class Welcome(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.Cog.listener()
-    async def on_member_update(self, before: Member, after: Member) -> None:
-        role_changed = (before.pending != after.pending and not after.pending)
-        changed_roles = self.get_changed_roles(before, after)
-        learning_group_changed = self.are_learning_groups_changed(changed_roles)
-
-        if role_changed and not learning_group_changed:
-            await self.send_welcome_message(before)
-
-    def are_learning_groups_changed(self, sss: set[str]):
-        for role in sss:
-            if "lg - " in role:
-                return True
-        return False
-
-    def get_changed_roles(self, before: Member, after: Member) -> set[str]:
-        if before is None or after is None:
-            return set()
-
-        # get all role names and normalize them for comparison
-        roles_before = [obj.name.lower().strip() for obj in before.roles]
-        roles_after = [obj.name.lower().strip() for obj in after.roles]
-
-        # Compare sets
-        old_set = set(roles_before)
-        new_set = set(roles_after)
-
-        # check what was added or deleted for debugging purposes
-        added = new_set - old_set
-        deleted = old_set - new_set
-
-        changed_roles = added.union(deleted)
-
-        return changed_roles
-
-    async def send_welcome_message(self, before):
-        channel_id = self.bot.get_settings(before.guild.id).greeting_channel_id
+    async def send_welcome_message(self, member: Member) -> None:
+        channel_id = self.bot.get_settings(member.guild.id).greeting_channel_id
         channel = await self.bot.fetch_channel(channel_id)
 
         welcome_message = f"""
-        Hey {before.mention}, 
+        Hey {member.mention}, 
 schön, dass du hergefunden hast :nerd: 
 
 Unsere Serverregeln findest du hier: <#{os.getenv('DISCORD_RULE_CHANNEL')}> 
