@@ -22,6 +22,7 @@ def create_combined_diagram(data):
     df = pd.DataFrame(data)
     df["% nicht ausreichend"] = (df["nicht ausreichend"] / df["Teilnehmer"]) * 100
 
+    amount_of_semesters = range(len(df["Semester"]))
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12))
 
     # Stacked bar chart
@@ -30,14 +31,16 @@ def create_combined_diagram(data):
     ax1.set_title("Notenverteilung im Modul 'Knowledge Management' (31831)")
     ax1.set_xlabel("")
     ax1.set_ylabel("Anzahl Studierender")
+    ax1.set_xticks(amount_of_semesters)
     ax1.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax1.legend(title="Bewertung")
 
     # Percentage line chart
-    ax2.plot(df["Semester"], df["% nicht ausreichend"], marker="o", linestyle="-")
+    ax2.plot(amount_of_semesters, df["% nicht ausreichend"], marker="o", linestyle="-")
     ax2.set_title("Prozentualer Anteil 'nicht ausreichend' an allen Teilnehmern")
     ax2.set_xlabel("Semester")
     ax2.set_ylabel("Anteil (%)")
+    ax2.set_xticks(amount_of_semesters)
     ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax2.grid(True, linestyle="--", alpha=0.6)
 
