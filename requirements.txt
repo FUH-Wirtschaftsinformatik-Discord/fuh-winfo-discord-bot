@@ -24,3 +24,7 @@ yarl==1.18.0
 # scraper
 requests==2.32.5
 httpx==0.28.1
+
+# plotting
+pandas==2.3.2
+matplotlib==3.10.6

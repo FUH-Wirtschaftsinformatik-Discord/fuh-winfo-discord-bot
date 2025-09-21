@@ -28,6 +28,14 @@
             "program": "${workspaceFolder}/wiwi-scraper/scraper.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
-        }                
+        },
+        {
+            "name": "Python Debugger: WiWi Plotter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/wiwi-scraper/plot.py",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/docker.env"
+        }                  
     ]
 }
