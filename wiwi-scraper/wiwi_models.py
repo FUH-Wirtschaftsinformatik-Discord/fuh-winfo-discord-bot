@@ -1,13 +1,6 @@
-import io
-import uuid
-from datetime import timedelta, datetime
-
-import discord
-from discord import Colour
 from peewee import *
-from peewee import ModelSelect
 
-db = SqliteDatabase("data/wiwi-scraper-db.sqlite3")
+db = SqliteDatabase("wiwi-scraper/data/wiwi-scraper-db.sqlite3")
 
 class BaseModel(Model):
     class Meta:
