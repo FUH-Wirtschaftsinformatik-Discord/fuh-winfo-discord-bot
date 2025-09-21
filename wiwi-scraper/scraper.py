@@ -1,5 +1,6 @@
 #https://rgb.to/rgb/255,255,0
 #https://pillow.readthedocs.io/en/stable/reference/ImageFont.html
+from datetime import time
 from wiwi_models import StudyModuleModel 
 import requests
 from bs4 import BeautifulSoup
@@ -103,12 +104,24 @@ for element in all_elements:
 print(f"\nTotal modules found: {len(modules)}")
 
 
-for module in modules:    # Check if module already exists in DB
+for module in modules:    
 
+    # Check if module already exists in DB
+    existing_study_module = StudyModuleModel.get(module_number=module.module_number, 
+                                                 module_name=module.module_name,
+                                                 is_summer_semester=module.is_summer_semester,
+                                                 examination_period=module.examination_period,)
 
-    existing_study_module = StudyModuleModel.get(module_number=module.module_number)
+    new_very_good = module.get_grade("very_good") or 0
+    new_good = module.get_grade("good") or 0
+    new_satisfactory = module.get_grade("satisfactory") or 0
+    new_sufficient = module.get_grade("sufficient") or 0
+    new_insufficient = module.get_grade("insufficient") or 0
+
+    
 
     if not existing_study_module:
+
         StudyModuleModel.create(
             module_number=module.module_number,
             module_name=module.module_name,
@@ -116,9 +129,46 @@ for module in modules:    # Check if module already exists in DB
             year=module.year,
             examination_period=module.examination_period,
             anonymous=module.anonyomous,
-            very_good=module.get_grade("very_good") or 0,
-            good=module.get_grade("good") or 0,
-            satisfactory=module.get_grade("satisfactory") or 0,
-            sufficient=module.get_grade("sufficient") or 0,
-            insufficient=module.get_grade("insufficient") or 0
+            very_good=new_very_good,
+            good=new_good,
+            satisfactory=new_satisfactory,
+            sufficient=new_sufficient,
+            insufficient=new_insufficient
         )
+
+        continue
+
+    old_very_good = existing_study_module.very_good
+    old_good = existing_study_module.good
+    old_satisfactory = existing_study_module.satisfactory
+    old_sufficient = existing_study_module.sufficient
+    old_insufficient = existing_study_module.insufficient
+
+    changed = (
+        old_very_good != new_very_good or
+        old_good != new_good or
+        old_satisfactory != new_satisfactory or
+        old_sufficient != new_sufficient or
+        old_insufficient != new_insufficient
+    )
+
+    if changed:
+        print(f"Updating module {module.module_number} - {module.module_name} for semester {module.year} ({'SS' if module.is_summer_semester else 'WS'}) - {module.examination_period}.")
+        print(f"Old Grades: Very Good: {old_very_good}, Good: {old_good}, Satisfactory: {old_satisfactory}, Sufficient: {old_sufficient}, Insufficient: {old_insufficient}")
+        print(f"New Grades: Very Good: {new_very_good}, Good: {new_good}, Satisfactory: {new_satisfactory}, Sufficient: {new_sufficient}, Insufficient: {new_insufficient}")
+
+        existing_study_module.very_good = new_very_good
+        existing_study_module.good = new_good
+        existing_study_module.satisfactory = new_satisfactory
+        existing_study_module.sufficient = new_sufficient
+        existing_study_module.insufficient = new_insufficient
+
+
+        with StudyModuleModel._meta.database.atomic():  # transaction context
+            StudyModuleModel.save(existing_study_module)
+
+            pass
+
+
+    else:
+        print(f"No changes for module {module.module_number} - {module.module_name} for semester {module.year} ({'SS' if module.is_summer_semester else 'WS'}) - {module.examination_period}. Skipping update.")
