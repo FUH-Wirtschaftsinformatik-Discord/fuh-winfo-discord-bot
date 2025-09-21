@@ -38,6 +38,8 @@ def get_plot_data(module_number: str) -> dict:
     sufficient_labels: list[int] = []
     insufficient_labels: list[int] = []
 
+    checksum=0
+
     for module in all_study_modules:
     
         semester_label=""
@@ -55,6 +57,8 @@ def get_plot_data(module_number: str) -> dict:
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
 
+        checksum+=participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+
     data = {
         "Name": module_name,
         "Modulnummer": module_number,
@@ -64,7 +68,8 @@ def get_plot_data(module_number: str) -> dict:
         "gut": good_labels,
         "befriedigend": satisfactory_labels,
         "ausreichend": sufficient_labels,
-        "nicht ausreichend": insufficient_labels
+        "nicht ausreichend": insufficient_labels,
+        "Checksum": checksum
     }
 
     return data
