@@ -1,6 +1,6 @@
 #https://rgb.to/rgb/255,255,0
 #https://pillow.readthedocs.io/en/stable/reference/ImageFont.html
-import re
+from wiwi_models import StudyModuleModel 
 import requests
 from bs4 import BeautifulSoup
 from study_module import StudyModule 
@@ -65,8 +65,6 @@ for element in all_elements:
             examination_period=examination_period
         )        
 
-        # <tr> <td>Teilnehmer</td> <td>sehr gut</td> <td>gut</td> <td>befriedigend</td> <td>ausreichend</td> <td>nicht ausreichend</td> </tr>
-
         module_participants = 0
         module_very_good = 0
         module_good = 0
@@ -105,4 +103,22 @@ for element in all_elements:
 print(f"\nTotal modules found: {len(modules)}")
 
 
-    
+for module in modules:    # Check if module already exists in DB
+
+
+    existing_study_module = StudyModuleModel.get(module_number=module.module_number)
+
+    if not existing_study_module:
+        StudyModuleModel.create(
+            module_number=module.module_number,
+            module_name=module.module_name,
+            is_summer_semester=module.is_summer_semester,
+            year=module.year,
+            examination_period=module.examination_period,
+            anonymous=module.anonyomous,
+            very_good=module.get_grade("very_good") or 0,
+            good=module.get_grade("good") or 0,
+            satisfactory=module.get_grade("satisfactory") or 0,
+            sufficient=module.get_grade("sufficient") or 0,
+            insufficient=module.get_grade("insufficient") or 0
+        )
