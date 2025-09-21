@@ -20,6 +20,14 @@
             "program": "${workspaceFolder}/module_scraper.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
-        }        
+        },
+        {
+            "name": "Python Debugger: WiWi Scraper",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/wiwi-scraper/scraper.py",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/docker.env"
+        }                
     ]
 }
