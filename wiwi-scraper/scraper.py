@@ -23,9 +23,17 @@ class WiwiScraper:
 
         for element in page_content:
             if element.name in ["h2", "h3"]:
-                current_semester = element.get_text(strip=True)
+                current_semester: str = element.get_text(strip=True)
                 for semester_part in current_semester.lower().split(" "):
-                    if semester_part.isdigit():
+
+                    has_slash = semester_part.count("/") > 0
+                    if has_slash:
+                        years = semester_part.split("/")
+                        if len(years) == 2 and years[0].isdigit() and years[1].isdigit():
+                            semester_nr = int(years[0])
+                            semester_nr += 1
+                            is_summer_semester = False
+                    elif semester_part.isdigit():
                         semester_nr = int(semester_part)
                     elif "sommer" in semester_part:
                         is_summer_semester = True

@@ -1,28 +1,69 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from peewee import Case
 
 from wiwi_models import StudyModuleModel
 
+module_number="31831"
+# module_number="31831"
+
 # Load all StudyModuleModel objects into memory (example for module_number == "31831")
-all_study_modules = list(StudyModuleModel.select().where(StudyModuleModel.module_number == "31831").order_by(StudyModuleModel.year.desc()))
+# Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
+all_study_modules = list(
+    StudyModuleModel.select()
+    .where(StudyModuleModel.module_number == module_number)
+    .order_by(
+        StudyModuleModel.year,
+        StudyModuleModel.is_summer_semester.asc(),
+        Case(None, ((StudyModuleModel.examination_period == "P2", 1),), 0)
+    )
+)
+
+if len(all_study_modules) == 0:
+    print(f"No data found for module_number={module_number}")
+    exit(1)
+
+module_name=all_study_modules[0].module_name
+
+semester_labels: list[str] = []
+participant_labels: list[int] = []
+very_good_labels: list[int] = []
+good_labels: list[int] = []
+satisfactory_labels: list[int] = []
+sufficient_labels: list[int] = []
+insufficient_labels: list[int] = []
+
+for module in all_study_modules:
+   
+    fmodule_name=""
+
+    if module.is_summer_semester:
+        fmodule_name = f"SS{module.year}"
+    else:
+        fmodule_name = f"WS{module.year-1}/{module.year}"
+
+    print(f"{fmodule_name} {module.examination_period}: Teilnehmer={module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient}")
+
+    semester_labels.append(f"{fmodule_name} {module.examination_period}")
+    participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+    participant_labels.append(participants)
+    very_good_labels.append(module.very_good)   
+    good_labels.append(module.good)
+    satisfactory_labels.append(module.satisfactory)
+    sufficient_labels.append(module.sufficient)
+    insufficient_labels.append(module.insufficient)
 
 data = {
-    "Name": "Knowledge Management",
-    "Modulnummer": "31831",
-    "Semester": [
-        "SS 2017", "WS 2017/18", "SS 2018", "WS 2018/19", "SS 2019",
-        "WS 2019/20", "SS 2020", "WS 2020/21", "SS 2021", "WS 2021/22",
-        "SS 2022", "WS 2022/23", "SS 2023", "WS 2023/24", "SS 2024",
-        "WS 2024/25", "SS 2025"
-    ],
-    "Teilnehmer": [6, 16, 24, 55, 48, 67, 66, 97, 73, 79, 45, 66, 35, 44, 48, 27, 0],
-    "sehr gut": [1, 1, 1, 11, 16, 10, 4, 11, 2, 1, 0, 4, 1, 3, 8, 9, 0],
-    "gut": [1, 9, 14, 36, 19, 30, 36, 28, 10, 17, 14, 13, 7, 9, 19, 7, 0],
-    "befriedigend": [4, 4, 8, 8, 11, 23, 16, 36, 25, 28, 19, 29, 12, 15, 11, 5, 0],
-    "ausreichend": [0, 2, 0, 0, 1, 3, 5, 13, 20, 17, 9, 12, 8, 9, 8, 4, 0],
-    "nicht ausreichend": [0, 0, 1, 0, 1, 1, 5, 9, 16, 16, 3, 8, 7, 8, 3, 2, 0]
+    "Name": module_name,
+    "Modulnummer": module_number,
+    "Semester": semester_labels,
+    "Teilnehmer": participant_labels,
+    "sehr gut": very_good_labels,
+    "gut": good_labels,
+    "befriedigend": satisfactory_labels,
+    "ausreichend": sufficient_labels,
+    "nicht ausreichend": insufficient_labels
 }
-
 
 def create_combined_diagram(data):
     df = pd.DataFrame(data)
@@ -50,7 +91,7 @@ def create_combined_diagram(data):
     ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax2.grid(True, linestyle="--", alpha=0.6)
 
-    output_filename = f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").lower()
+    output_filename = f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").replace("-", "_").lower()
 
     plt.tight_layout()
     plt.savefig(output_filename)
