@@ -18,48 +18,35 @@ data = {
 }
 
 
-def get_grade_distribution_diagram(data):
-    # Create DataFrame
+def create_combined_diagram(data):
     df = pd.DataFrame(data)
-
-    # Plot stacked bar chart
-    plt.figure(figsize=(14, 8))
-    categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
-    ax1 = df.set_index("Semester")[categories].plot(kind="bar", stacked=True, figsize=(16,8))
-
-    plt.title("Notenverteilung im Modul 'Knowledge Management' (31831)")
-    plt.xlabel("Semester")
-    plt.ylabel("Anzahl Studierender")
-    plt.xticks(rotation=45, ha="right")
-    plt.legend(title="Bewertung")
-    plt.tight_layout()
-    plt.savefig("notenverteilung_knowledge_management.png")
-    plt.close()
-
-
-def get_failed_students_diagram(data):
-    # Create DataFrame
-    df = pd.DataFrame(data)
-
-    # Calculate percentage of "nicht ausreichend" relative to total participants
     df["% nicht ausreichend"] = (df["nicht ausreichend"] / df["Teilnehmer"]) * 100
 
-    # Plot percentage trend
-    plt.figure(figsize=(12,6))
-    plt.plot(df["Semester"], df["% nicht ausreichend"], marker="o", linestyle="-")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12))
 
-    plt.title("Prozentualer Anteil 'nicht ausreichend' an allen Teilnehmern")
-    plt.xlabel("Semester")
-    plt.ylabel("Anteil (%)")
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(True, linestyle="--", alpha=0.6)
+    # Stacked bar chart
+    categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
+    df.set_index("Semester")[categories].plot(kind="bar", stacked=True, ax=ax1)
+    ax1.set_title("Notenverteilung im Modul 'Knowledge Management' (31831)")
+    ax1.set_xlabel("")
+    ax1.set_ylabel("Anzahl Studierender")
+    ax1.set_xticklabels(df["Semester"], rotation=45, ha="right")
+    ax1.legend(title="Bewertung")
+
+    # Percentage line chart
+    ax2.plot(df["Semester"], df["% nicht ausreichend"], marker="o", linestyle="-")
+    ax2.set_title("Prozentualer Anteil 'nicht ausreichend' an allen Teilnehmern")
+    ax2.set_xlabel("Semester")
+    ax2.set_ylabel("Anteil (%)")
+    ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
+    ax2.grid(True, linestyle="--", alpha=0.6)
+
     plt.tight_layout()
-    plt.savefig("prozent_nicht_ausreichend.png")
+    plt.savefig("combined_knowledge_management.png")
     plt.close()
 
 
-get_grade_distribution_diagram(data)
-get_failed_students_diagram(data)
+create_combined_diagram(data)
 
 
 
