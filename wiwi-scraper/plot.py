@@ -4,6 +4,20 @@ from peewee import Case
 
 from wiwi_models import StudyModuleModel
 
+
+
+
+def get_module_numbers() -> set[str]:
+    # Get all unique module numbers from the database
+    unique_module_numbers = list(
+        StudyModuleModel.select(StudyModuleModel.module_number)
+        .distinct()
+        .order_by(StudyModuleModel.module_number)
+        .tuples()
+    )
+    unique_module_numbers = set([num[0] for num in unique_module_numbers])
+    return unique_module_numbers
+
 def get_plot_data(module_number: str) -> dict:
     # Load all StudyModuleModel objects into memory (example for module_number == "31831")
     # Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
@@ -91,8 +105,14 @@ def create_combined_diagram(data):
     plt.close()
 
 
-data = get_plot_data("31831")
-create_combined_diagram(data)
+
+for module_number in get_module_numbers():
+    print(f"Creating plots for module number: {module_number}")
+
+    data = get_plot_data(module_number)
+    create_combined_diagram(data)
+
+    print(f"Created plot for module number: {module_number}")
 
 
 
