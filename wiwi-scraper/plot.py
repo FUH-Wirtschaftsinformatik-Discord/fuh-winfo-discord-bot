@@ -1,11 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
-
+import os
 from wiwi_models import StudyModuleModel
-
-
-
 
 def get_module_numbers() -> set[str]:
     # Get all unique module numbers from the database
@@ -98,7 +95,10 @@ def create_combined_diagram(data):
     ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax2.grid(True, linestyle="--", alpha=0.6)
 
-    output_filename = f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").replace("-", "_").lower()
+    results_dir = "results"
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    output_filename = os.path.join(results_dir, f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").replace("-", "_").lower())
 
     plt.tight_layout()
     plt.savefig(output_filename)
