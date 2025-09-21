@@ -27,6 +27,8 @@ semester_nr = 0
 examination_period = "Unknown"
 is_summer_semester = False
 
+modules: list[StudyModule] = []
+
 # Iterate through elements in order
 for element in all_elements:
     if element.name in ["h2", "h3"]:  # If it's a semester header
@@ -72,27 +74,35 @@ for element in all_elements:
         module_sufficient = 0
         module_insufficient_grade = 0
 
-        if row_3[0].strip().isnumeric():
-            module_participants = int(row_3[0].strip())
-        if row_3[1].strip().isnumeric():
-            module_very_good = int(row_3[1].strip())
-        if row_3[2].strip().isnumeric():
-            module_good = int(row_3[2].strip())
-        if row_3[3].strip().isnumeric():
-            module_satisfactory = int(row_3[3].strip())
-        if row_3[4].strip().isnumeric():
-            module_sufficient = int(row_3[4].strip())
-        if row_3[5].strip().isnumeric():
-            module_insufficient_grade = int(row_3[5].strip())
+        try:
+            if row_3[0].strip().isnumeric():
+                module_participants = int(row_3[0].strip())
+            if row_3[1].strip().isnumeric():
+                module_very_good = int(row_3[1].strip())
+            if row_3[2].strip().isnumeric():
+                module_good = int(row_3[2].strip())
+            if row_3[3].strip().isnumeric():
+                module_satisfactory = int(row_3[3].strip())
+            if row_3[4].strip().isnumeric():
+                module_sufficient = int(row_3[4].strip())
+            if row_3[5].strip().isnumeric():
+                module_insufficient_grade = int(row_3[5].strip())
+        except:
+            print(f"Error parsing numbers for module {module_number} - {module_name} in semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
+            new_module.anonyomous=True
 
-        if module_satisfactory > 0:
+        new_module.add_grade("very_good", module_very_good)
+        new_module.add_grade("good", module_good)
+        new_module.add_grade("satisfactory", module_satisfactory)
+        new_module.add_grade("sufficient", module_sufficient)
+        new_module.add_grade("insufficient", module_insufficient_grade)
 
-            print(f"\n📌 **Table for Semester: {current_semester}**\n")
-            print(f"Module Semester: {new_module.year} {'Summer' if new_module.is_summer_semester else 'Winter'}")
-            print(f"Module Number: {module_number}")
-            print(f"Module Name: {module_name}")
-            print(f"Very Good (1.0 - 1.5): {module_very_good}")
-            print(f"Good (1.6 - 2.5): {module_good}")
-            print(f"Satisfactory (2.6 - 3.5): {module_satisfactory}")
-            print(f"Sufficient (3.6 - 4.0): {module_sufficient}")
-            print(f"Insufficient Grade (5.0): {module_insufficient_grade}")
+        modules.append(new_module)
+
+        print(f"Added module: {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
+        print(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
+
+print(f"\nTotal modules found: {len(modules)}")
+
+
+    
