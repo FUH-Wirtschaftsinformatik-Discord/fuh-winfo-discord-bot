@@ -1,7 +1,11 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# Data from the user
+from wiwi_models import StudyModuleModel
+
+# Load all StudyModuleModel objects into memory (example for module_number == "31831")
+all_study_modules = list(StudyModuleModel.select().where(StudyModuleModel.module_number == "31831").order_by(StudyModuleModel.year.desc()))
+
 data = {
     "Name": "Knowledge Management",
     "Modulnummer": "31831",
