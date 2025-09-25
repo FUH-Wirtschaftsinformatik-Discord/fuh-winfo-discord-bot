@@ -74,7 +74,15 @@ def get_plot_data(module_number: str) -> dict:
 
     return data
 
-def create_combined_diagram(data):
+def create_combined_diagram(data: dict) -> str:
+    # prepare file path
+    results_dir = "results"
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    output_filename = os.path.join(results_dir, f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").replace("-", "_").lower())
+    full_output_filename = os.path.abspath(output_filename)
+    
+    # draw combined diagram
     df = pd.DataFrame(data)
     df["% nicht ausreichend"] = (df["nicht ausreichend"] / df["Teilnehmer"]) * 100
 
@@ -93,32 +101,25 @@ def create_combined_diagram(data):
 
     # Percentage line chart
     ax2.plot(amount_of_semesters, df["% nicht ausreichend"], marker="o", linestyle="-")
-    ax2.set_title("Prozentualer Anteil 'nicht ausreichend' von allen Teilnehmern")
+    ax2.set_title("Durchfallquote")
     ax2.set_xlabel("Semester")
     ax2.set_ylabel("Anteil (%)")
     ax2.set_xticks(amount_of_semesters)
     ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax2.grid(True, linestyle="--", alpha=0.6)
 
-    results_dir = "results"
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-    output_filename = os.path.join(results_dir, f"{data['Name']}_{data['Modulnummer']}.png".strip().replace(" ", "_").replace("-", "_").lower())
-
     plt.tight_layout()
-    plt.savefig(output_filename)
+    plt.savefig(full_output_filename)
     plt.close()
 
-
+    return full_output_filename
 
 for module_number in get_module_numbers():
     print(f"Creating plots for module number: {module_number}")
 
-    data = get_plot_data(module_number)
-    create_combined_diagram(data)
+    plot_metadata = get_plot_data(module_number)
+    path = create_combined_diagram(plot_metadata)
 
-    print(f"Created plot for module number: {module_number}")
-
-
+    print(f"Created plot for module number: {module_number} (checksum: {plot_metadata['Checksum']}) at {path}")
 
 

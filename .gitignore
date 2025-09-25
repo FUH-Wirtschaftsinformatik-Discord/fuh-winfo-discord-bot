@@ -25,6 +25,8 @@ media
 .idea/**/libraries 
 *.iws /out/ 
 
+# results/*.png
+
 # Python # 
 *.py[cod] 
 *$py.class 
