@@ -1,4 +1,3 @@
-import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from wiwi_models import StudyModuleModel
@@ -6,6 +5,9 @@ from study_module import StudyModule
 
 class WiwiScraper:
     URL = "https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml"
+
+    def __init__(self, ):
+        self.session = httpx.AsyncClient()
 
     async def download_page(self) -> ResultSet:
         async with httpx.AsyncClient() as client:
@@ -182,24 +184,7 @@ class WiwiScraper:
             existing: StudyModuleModel = module_change["existing"]
             new_grades = module_change["new_grades"]
             try:
-                with StudyModuleModel._meta.database.atomic() as txn:
-                    # (StudyModuleModel
-                    #  .update(
-                    #      very_good=new_grades["very_good"],
-                    #      good=new_grades["good"],
-                    #      satisfactory=new_grades["satisfactory"],
-                    #      sufficient=new_grades["sufficient"],
-                    #      insufficient=new_grades["insufficient"]
-                    #  )
-                    #  .where(
-                    #      (StudyModuleModel.module_number == existing.module_number) &
-                    #      (StudyModuleModel.module_name == existing.module_name) &
-                    #      (StudyModuleModel.is_summer_semester == existing.is_summer_semester) &
-                    #      (StudyModuleModel.year == existing.year) &
-                    #      (StudyModuleModel.examination_period == existing.examination_period)
-                    #  )
-                    #  .execute())
-                    
+                with StudyModuleModel._meta.database.atomic() as txn:                   
                     existing_study_module = StudyModuleModel.get_or_none(
                             module_number=existing.module_number,
                             is_summer_semester=existing.is_summer_semester ,
@@ -240,6 +225,3 @@ class WiwiScraper:
 
         print("Done.")
 
-if __name__ == "__main__":
-    scraper = WiwiScraper()
-    asyncio.run(scraper.run())

@@ -1,6 +1,10 @@
+import os
 from peewee import *
 
-db = SqliteDatabase("wiwi-scraper/data/wiwi-scraper-db.sqlite3")
+sqlite_path = os.getenv("WIWI_SCRAPER_DB_PATH", "wiwi-scraper/data/wiwi-scraper-db.sqlite3")
+
+# Use environment variable WIWI_SCRAPER_DB_PATH, fallback to default
+db = SqliteDatabase(sqlite_path)
 
 class BaseModel(Model):
     class Meta:

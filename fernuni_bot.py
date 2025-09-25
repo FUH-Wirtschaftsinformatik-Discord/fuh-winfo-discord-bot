@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import List
 
 import discord
 from discord import Intents, Game, Thread

@@ -25,7 +25,7 @@
             "name": "Python Debugger: WiWi Scraper",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/wiwi-scraper/scraper.py",
+            "program": "${workspaceFolder}/wiwi-scraper/runner.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
         },

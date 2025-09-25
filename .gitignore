@@ -25,8 +25,6 @@ media
 .idea/**/libraries 
 *.iws /out/ 
 
-# results/*.png
-
 # Python # 
 *.py[cod] 
 *$py.class 
@@ -119,3 +117,6 @@ GitHub.sublime-settings
 !.vscode/extensions.json 
 .history
 /data
+
+# misc
+results/*.png
