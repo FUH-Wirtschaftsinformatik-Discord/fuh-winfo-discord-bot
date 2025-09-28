@@ -25,7 +25,7 @@
             "name": "Python Debugger: WiWi Scraper",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/wiwi-scraper/runner.py",
+            "program": "${workspaceFolder}/wiwi_scraper.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
         },
@@ -33,7 +33,7 @@
             "name": "Python Debugger: WiWi Plotter",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/wiwi-scraper/plot.py",
+            "program": "${workspaceFolder}/plotter.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
         }                  

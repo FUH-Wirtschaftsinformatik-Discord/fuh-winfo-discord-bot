@@ -2,9 +2,18 @@ name: fernuni_discord_bot
 
 services:
   bot:
-    build: .
+    build:
+      context: .
+      dockerfile: bot.Dockerfile
     user: appuser:appuser
     env_file:
       - docker.env
+    volumes:
+      - ./data:/app/data
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper.Dockerfile
+    user: appuser:appuser
     volumes:
       - ./data:/app/data

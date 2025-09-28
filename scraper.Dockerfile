@@ -17,4 +17,4 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-CMD ["python", "runner.py"]
+CMD ["python", "wiwi_scraper.py"]

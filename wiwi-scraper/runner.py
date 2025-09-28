@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from scraper import WiwiScraper
+from wiwi_scraper import WiwiScraper
 import asyncio
 
 load_dotenv()
