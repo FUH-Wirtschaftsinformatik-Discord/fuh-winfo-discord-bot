@@ -15,7 +15,7 @@ def get_module_numbers() -> set[str]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
-def extract_grade_statistics(module_number: str, limit_semesters=10) -> dict:
+def extract_grade_statistics(module_number: str, limit_semesters=20) -> dict:
     if module_number is None or len(module_number.strip()) == 0:
         raise ValueError("Module number is not specified or is empty.")
     if limit_semesters <= 0:
@@ -139,27 +139,28 @@ def plot_all_statistics():
         print(f"Creating plots for module number: {module_number}")
 
         statistics = extract_grade_statistics(module_number)
-        path = plot_diagram_as_file(statistics)
+        full_file_path = plot_diagram_as_file(statistics)
 
         plotted[module_number] = {
-            "Path": path,
+            "Path": full_file_path,
         }
 
-        # Create or update ModuleGradeStatisticsGraphic entry
+        # Store only the filename (not full path)
+        file_name = os.path.basename(full_file_path)
         graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
             module_number=module_number,
             defaults={
                 "module_number": module_number,
-                "path": path
+                "path": file_name
             }
         )
         if not created:
             # Update existing entry
             graphic_entry.module_number = module_number
-            graphic_entry.path = path
+            graphic_entry.path = file_name
             graphic_entry.save()
 
-        print(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {path}")
+        print(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
 
     print("Plot generation completed.")
 
