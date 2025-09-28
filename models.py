@@ -269,7 +269,7 @@ class Contact(BaseModel):
     name = CharField()
     module = ForeignKeyField(Module, backref='contacts')
 
-class StudyModuleModel(BaseModel):
+class ModuleGradeStatistics(BaseModel):
     module_number = CharField()
     module_name = CharField()
     is_summer_semester = BooleanField()
@@ -288,5 +288,5 @@ class StudyModuleModel(BaseModel):
 
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, Module, Event, Support, Exam, Download, Contact, StudyModuleModel], safe=True)
+     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics], safe=True)
 

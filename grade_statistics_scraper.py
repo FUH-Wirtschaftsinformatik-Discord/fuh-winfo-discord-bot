@@ -1,9 +1,11 @@
 import httpx
 from bs4 import BeautifulSoup, ResultSet
-from wiwi_models import StudyModuleModel
-from study_module import StudyModule
+from models import ModuleGradeStatistics
+from grade_statistics import GradeStatistics
+from dotenv import load_dotenv
+import asyncio
 
-class WiwiScraper:
+class GradeStatisticsScraper:
     URL = "https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml"
 
     def __init__(self, ):
@@ -17,8 +19,8 @@ class WiwiScraper:
             all_elements = soup.find_all(["h2", "h3", "table"])
             return all_elements
 
-    async def extract_modules(self, page_content: ResultSet) -> list[StudyModule]:
-        modules: list[StudyModule] = []
+    async def extract_modules(self, page_content: ResultSet) -> list[GradeStatistics]:
+        modules: list[GradeStatistics] = []
         semester_nr = 0
         examination_period = "Unknown"
         is_summer_semester = False
@@ -52,7 +54,7 @@ class WiwiScraper:
                 row_3 = [col.get_text(strip=True) for col in rows[2].find_all(["th", "td"])]
                 module_number: str = row_1[0].strip()
                 module_name: str = row_1[1].strip()
-                new_module = StudyModule(
+                new_module = GradeStatistics(
                     module_number=module_number,
                     module_name=module_name,
                     is_summer_semester=is_summer_semester,
@@ -98,9 +100,9 @@ class WiwiScraper:
             "changed_modules": []
         }
         for module in modules:
-            existing_study_module: StudyModuleModel = None
+            existing_study_module: ModuleGradeStatistics = None
             try:
-                existing_study_module = StudyModuleModel.get_or_none(
+                existing_study_module = ModuleGradeStatistics.get_or_none(
                     module_number=module.module_number ,
                     is_summer_semester=module.is_summer_semester ,
                     examination_period=module.examination_period ,
@@ -110,7 +112,6 @@ class WiwiScraper:
             except Exception:
                 existing_study_module = None
                 pass
-
 
             new_very_good = module.get_grade("very_good")
             new_good = module.get_grade("good")
@@ -157,12 +158,12 @@ class WiwiScraper:
                 })
         return change_container
 
-    async def store_added(self, list_of_modules: list[StudyModuleModel]) -> None:
+    async def store_added(self, list_of_modules: list[ModuleGradeStatistics]) -> None:
         # add to database
         for module in list_of_modules:
             try:
-                with StudyModuleModel._meta.database.atomic() as txn:
-                    StudyModuleModel.create(
+                with ModuleGradeStatistics._meta.database.atomic() as txn:
+                    ModuleGradeStatistics.create(
                         module_number=module["module_number"],
                         module_name=module["module_name"],
                         is_summer_semester=module["is_summer_semester"],
@@ -179,14 +180,14 @@ class WiwiScraper:
             except Exception as e:
                 print(f"Error adding module {module['module_number']} - {module['module_name']}: {e}")
 
-    async def store_updated(self, list_of_modules: list[StudyModuleModel]):
+    async def store_updated(self, list_of_modules: list[ModuleGradeStatistics]):
         # update in database
         for module_change in list_of_modules:
-            existing: StudyModuleModel = module_change["existing"]
+            existing: ModuleGradeStatistics = module_change["existing"]
             new_grades = module_change["new_grades"]
             try:
-                with StudyModuleModel._meta.database.atomic() as txn:                   
-                    existing_study_module = StudyModuleModel.get_or_none(
+                with ModuleGradeStatistics._meta.database.atomic() as txn:                   
+                    existing_study_module = ModuleGradeStatistics.get_or_none(
                             module_number=existing.module_number,
                             is_summer_semester=existing.is_summer_semester ,
                             examination_period=existing.examination_period ,
@@ -226,3 +227,11 @@ class WiwiScraper:
 
         print("Done.")
 
+if __name__ == "__main__":
+    load_dotenv()
+
+    scraper = GradeStatisticsScraper()
+
+    scraper.run()
+
+    asyncio.run(scraper.run())

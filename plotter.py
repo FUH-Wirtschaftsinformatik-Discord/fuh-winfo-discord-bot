@@ -2,14 +2,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import StudyModuleModel
+from models import ModuleGradeStatistics
 
 def get_module_numbers() -> set[str]:
     # Get all unique module numbers from the database
     unique_module_numbers = list(
-        StudyModuleModel.select(StudyModuleModel.module_number)
+        ModuleGradeStatistics.select(ModuleGradeStatistics.module_number)
         .distinct()
-        .order_by(StudyModuleModel.module_number)
+        .order_by(ModuleGradeStatistics.module_number)
         .tuples()
     )
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
@@ -19,12 +19,12 @@ def get_plot_data(module_number: str) -> dict:
     # Load all StudyModuleModel objects into memory (example for module_number == "31831")
     # Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
     all_study_modules = list(
-        StudyModuleModel.select()
-        .where(StudyModuleModel.module_number == module_number)
+        ModuleGradeStatistics.select()
+        .where(ModuleGradeStatistics.module_number == module_number)
         .order_by(
-            StudyModuleModel.year,
-            StudyModuleModel.is_summer_semester.asc(),
-            Case(None, ((StudyModuleModel.examination_period == "P2", 1),), 0)
+            ModuleGradeStatistics.year,
+            ModuleGradeStatistics.is_summer_semester.asc(),
+            Case(None, ((ModuleGradeStatistics.examination_period == "P2", 1),), 0)
         )
     )
 
