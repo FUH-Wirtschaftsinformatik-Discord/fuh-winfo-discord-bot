@@ -88,6 +88,11 @@ class GradeStatisticsScraper:
                 new_module.add_grade("satisfactory", module_satisfactory)
                 new_module.add_grade("sufficient", module_sufficient)
                 new_module.add_grade("insufficient", module_insufficient_grade)
+
+                if new_module.get_participant_count() == 0:
+                    print(f"Skipping: Module {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
+                    continue
+
                 modules.append(new_module)
                 print(f"Added module: {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
                 print(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")

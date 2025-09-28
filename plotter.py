@@ -15,12 +15,17 @@ def get_module_numbers() -> set[str]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
-def get_plot_data(module_number: str) -> dict:
+def extract_grade_statistics(module_number: str, limit_semesters=10) -> dict:
+    if module_number is None or len(module_number.strip()) == 0:
+        raise ValueError("Module number is not specified or is empty.")
+    if limit_semesters <= 0:
+        raise ValueError("Limit of semesters must be greater than zero.")
+
     # Load all StudyModuleModel objects into memory (example for module_number == "31831")
     # Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
-    all_study_modules = list(
+    statistics_by_semester = list(
         ModuleGradeStatistics.select()
-        .where(ModuleGradeStatistics.module_number == module_number)
+        .where(ModuleGradeStatistics.module_number == module_number.strip())
         .order_by(
             ModuleGradeStatistics.year,
             ModuleGradeStatistics.is_summer_semester.asc(),
@@ -28,7 +33,13 @@ def get_plot_data(module_number: str) -> dict:
         )
     )
 
-    module_name=all_study_modules[0].module_name if len(all_study_modules) > 0 else "Unknown"
+    # take last 10 elements
+    limit_statistics_by_semester = statistics_by_semester[(-1*limit_semesters):]
+
+    if len(limit_statistics_by_semester) == 0:
+        raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
+
+    module_name=limit_statistics_by_semester[0].module_name if len(limit_statistics_by_semester) > 0 else "Unknown"
 
     semester_labels: list[str] = []
     participant_labels: list[int] = []
@@ -40,7 +51,7 @@ def get_plot_data(module_number: str) -> dict:
 
     checksum=0
 
-    for module in all_study_modules:
+    for module in limit_statistics_by_semester:
     
         semester_label=""
         if module.is_summer_semester:
@@ -61,7 +72,7 @@ def get_plot_data(module_number: str) -> dict:
 
     data = {
         "Name": module_name,
-        "Modulnummer": module_number,
+        "Modulnummer": module_number.strip(),
         "Semester": semester_labels,
         "Teilnehmer": participant_labels,
         "sehr gut": very_good_labels,
@@ -74,7 +85,13 @@ def get_plot_data(module_number: str) -> dict:
 
     return data
 
-def create_combined_diagram(data: dict, output_directory='results') -> str:
+def plot_diagram_as_file(data: dict, output_directory='results') -> str:
+    if data is None or len(data) == 0:
+        raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
+
+    if output_directory is None or len(output_directory.strip()) == 0:
+        raise ValueError("Output directory is not specified or is empty.")
+
     # prepare file path
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -118,10 +135,9 @@ print("Starting plot generation...")
 for module_number in get_module_numbers():
     print(f"Creating plots for module number: {module_number}")
 
-    plot_metadata = get_plot_data(module_number)
-    path = create_combined_diagram(plot_metadata)
+    statistics = extract_grade_statistics(module_number)
+    path = plot_diagram_as_file(statistics)
 
-    print(f"Created plot for module number: {module_number} (checksum: {plot_metadata['Checksum']}) at {path}")
-
+    print(f"Created plot for module number: {module_number} (checksum: {statistics['Checksum']}) at {path}")
 
 print("Plot generation completed.")

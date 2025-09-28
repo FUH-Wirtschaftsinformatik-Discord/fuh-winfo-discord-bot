@@ -22,15 +22,15 @@
             "envFile": "${workspaceFolder}/docker.env"
         },
         {
-            "name": "Python Debugger: WiWi Scraper",
+            "name": "Python Debugger: GradeStatisticsScraper Scraper",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/wiwi_scraper.py",
+            "program": "${workspaceFolder}/grade_statistics_scraper.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
         },
         {
-            "name": "Python Debugger: WiWi Plotter",
+            "name": "Python Debugger: GradeStatisticsScraper Plotter",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/plotter.py",

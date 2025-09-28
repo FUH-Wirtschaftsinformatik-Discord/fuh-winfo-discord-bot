@@ -23,3 +23,12 @@ class GradeStatistics:
     def get_all_grades(self) -> dict:
         """Return the entire overview of grades."""
         return self.grades_overview
+    
+    def get_participant_count(self) -> int:
+        participants = 0
+
+        for grade in self.grades_overview.values():
+            if grade is not None:
+                participants += grade
+
+        return participants
