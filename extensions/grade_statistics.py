@@ -3,7 +3,7 @@ import re
 
 import discord
 from discord import app_commands, Interaction
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from models import Module, Download
 
@@ -30,15 +30,15 @@ class ModuleInformation(commands.Cog):
         self.bot = bot
         # self.update_loop.start()
 
-    @tasks.loop(hours=24)
-    # Replace with loop that checks if updates happened or not and send a notification in case it did not.
-    async def update_loop(self):
-        pass
-        # await self.refresh_data()
+    # @tasks.loop(hours=24)
+    # # Replace with loop that checks if updates happened or not and send a notification in case it did not.
+    # async def update_loop(self):
+    #     pass
+    #     # await self.refresh_data()
 
-    @update_loop.before_loop
-    async def before_update_loop(self):
-        await self.bot.wait_until_ready()
+    # @update_loop.before_loop
+    # async def before_update_loop(self):
+    #     await self.bot.wait_until_ready()
 
     @staticmethod
     async def find_module(channel, number):
