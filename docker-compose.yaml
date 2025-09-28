@@ -17,3 +17,11 @@ services:
     user: appuser:appuser
     volumes:
       - ./data:/app/data
+  plotter:
+    build:
+      context: .
+      dockerfile: plotter.Dockerfile
+    user: appuser:appuser
+    volumes:
+      - ./data:/app/data  
+      - ./data/plots:/app/results    

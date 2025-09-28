@@ -113,6 +113,8 @@ def create_combined_diagram(data: dict, output_directory='results') -> str:
 
     return full_output_filename
 
+print("Starting plot generation...")
+
 for module_number in get_module_numbers():
     print(f"Creating plots for module number: {module_number}")
 
@@ -122,3 +124,4 @@ for module_number in get_module_numbers():
     print(f"Created plot for module number: {module_number} (checksum: {plot_metadata['Checksum']}) at {path}")
 
 
+print("Plot generation completed.")
