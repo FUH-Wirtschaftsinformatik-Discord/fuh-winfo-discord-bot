@@ -24,4 +24,4 @@ services:
     user: appuser:appuser
     volumes:
       - ./data:/app/data  
-      - ./data/plots:/app/results    
+      - ./data/plots:/app/plots  

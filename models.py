@@ -286,7 +286,12 @@ class ModuleGradeStatistics(BaseModel):
     class Meta:
         composite_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
+class ModuleGradeStatisticsGraphic(BaseModel):
+    module_number = CharField(primary_key=True)
+    path = CharField()
+       
+
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics], safe=True)
+     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, ModuleGradeStatisticsGraphic], safe=True)
 

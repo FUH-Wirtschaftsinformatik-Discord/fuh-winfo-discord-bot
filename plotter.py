@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import ModuleGradeStatistics
+from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
 
 def get_module_numbers() -> set[str]:
     # Get all unique module numbers from the database
@@ -85,7 +85,7 @@ def extract_grade_statistics(module_number: str, limit_semesters=10) -> dict:
 
     return data
 
-def plot_diagram_as_file(data: dict, output_directory='results') -> str:
+def plot_diagram_as_file(data: dict, output_directory='plots') -> str:
     if data is None or len(data) == 0:
         raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
 
@@ -130,14 +130,37 @@ def plot_diagram_as_file(data: dict, output_directory='results') -> str:
 
     return full_output_filename
 
-print("Starting plot generation...")
+def plot_all_statistics():
+    print("Starting plot generation...")
 
-for module_number in get_module_numbers():
-    print(f"Creating plots for module number: {module_number}")
+    plotted = {}
 
-    statistics = extract_grade_statistics(module_number)
-    path = plot_diagram_as_file(statistics)
+    for module_number in get_module_numbers():
+        print(f"Creating plots for module number: {module_number}")
 
-    print(f"Created plot for module number: {module_number} (checksum: {statistics['Checksum']}) at {path}")
+        statistics = extract_grade_statistics(module_number)
+        path = plot_diagram_as_file(statistics)
 
-print("Plot generation completed.")
+        plotted[module_number] = {
+            "Path": path,
+        }
+
+        # Create or update ModuleGradeStatisticsGraphic entry
+        graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
+            module_number=module_number,
+            defaults={
+                "module_number": module_number,
+                "path": path
+            }
+        )
+        if not created:
+            # Update existing entry
+            graphic_entry.module_number = module_number
+            graphic_entry.path = path
+            graphic_entry.save()
+
+        print(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {path}")
+
+    print("Plot generation completed.")
+
+plot_all_statistics()
