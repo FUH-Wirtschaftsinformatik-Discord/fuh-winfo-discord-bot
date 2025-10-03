@@ -10,15 +10,3 @@ services:
     user: appuser:appuser
     volumes:
       - ./data:/app/data
-
-  plotter:
-    # image: rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.0
-    build:
-      context: .
-      dockerfile: plotter.Dockerfile
-    user: appuser:appuser
-    depends_on:
-      - scraper
-    volumes:
-      - ./data:/app/data  
-      - ./data/plots:/app/plots  
