@@ -1,6 +1,7 @@
 name: fernuni_discord_bot
 
 services:
+
   bot:
     build:
       context: .
@@ -10,6 +11,7 @@ services:
       - docker.env
     volumes:
       - ./data:/app/data
+
   scraper:
     build:
       context: .
@@ -17,6 +19,7 @@ services:
     user: appuser:appuser
     volumes:
       - ./data:/app/data
+
   plotter:
     build:
       context: .
