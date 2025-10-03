@@ -4,7 +4,7 @@ Description=Run test-scraper.service every 10 minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=10min
+OnUnitActiveSec=23h
 AccuracySec=1min
 Unit=test-scraper.service
 
