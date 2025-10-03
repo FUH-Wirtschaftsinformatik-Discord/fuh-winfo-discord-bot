@@ -3,6 +3,7 @@ name: fernuni_discord_bot
 services:
 
   bot:
+    # image: rndintusr/fuh-winfo-discordbot:v0.1.2
     build:
       context: .
       dockerfile: bot.Dockerfile
@@ -25,6 +26,8 @@ services:
       context: .
       dockerfile: plotter.Dockerfile
     user: appuser:appuser
+    depends_on:
+      - scraper
     volumes:
       - ./data:/app/data  
       - ./data/plots:/app/plots  

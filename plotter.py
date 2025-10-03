@@ -15,7 +15,7 @@ def get_module_numbers() -> set[str]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
-def extract_grade_statistics(module_number: str, limit_semesters=20) -> dict:
+def extract_grade_statistics(module_number: str, limit_semesters=18) -> dict:
     if module_number is None or len(module_number.strip()) == 0:
         raise ValueError("Module number is not specified or is empty.")
     if limit_semesters <= 0:
