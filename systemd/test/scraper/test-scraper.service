@@ -1,0 +1,11 @@
+# /etc/systemd/system/test-scraper.service
+[Unit]
+Description=Test - Discord Bot - Scraper Service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/projects/discord-bot/stages/test
+ExecStart=/usr/bin/docker compose -f /opt/projects/discord-bot/stages/test/docker-compose.scraping.yaml pull --quiet
+ExecStart=/usr/bin/docker compose -f /opt/projects/discord-bot/stages/test/docker-compose.scraping.yaml up -d
+# Avoid parallel runs:
+ExecStartPre=/usr/bin/flock -n /var/lock/myapp-compose.lock -c "echo locked"
