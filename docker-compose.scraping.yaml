@@ -2,18 +2,8 @@ name: fernuni_discord_bot
 
 services:
 
-  bot:
-    # image: rndintusr/fuh-winfo-discordbot:v1.1.0
-    build:
-      context: .
-      dockerfile: bot.Dockerfile
-    user: appuser:appuser
-    env_file:
-      - docker.env
-    volumes:
-      - ./data:/app/data
-
   scraper:
+    # image: rndintusr/fuh-winfo-discordbot-grade-scraper:v1.0.0
     build:
       context: .
       dockerfile: scraper.Dockerfile
@@ -22,6 +12,7 @@ services:
       - ./data:/app/data
 
   plotter:
+    # image: rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.0
     build:
       context: .
       dockerfile: plotter.Dockerfile
