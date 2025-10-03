@@ -20,4 +20,4 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-CMD ["python", "plotter.py"]
+CMD ["python", "grade_statistics_plotter.py"]

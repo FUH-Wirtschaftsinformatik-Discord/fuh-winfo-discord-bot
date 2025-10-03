@@ -33,7 +33,7 @@
             "name": "Python Debugger: GradeStatisticsScraper Plotter",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/plotter.py",
+            "program": "${workspaceFolder}/grade_statistics_plotter.py",
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/docker.env"
         }                  

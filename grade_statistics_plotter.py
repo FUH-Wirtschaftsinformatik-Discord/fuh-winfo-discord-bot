@@ -15,7 +15,7 @@ def get_module_numbers() -> set[str]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
-def extract_grade_statistics(module_number: str, limit_semesters=18) -> dict:
+def extract_grade_statistics(module_number: str, limit_semesters=20) -> dict:
     if module_number is None or len(module_number.strip()) == 0:
         raise ValueError("Module number is not specified or is empty.")
     if limit_semesters <= 0:
@@ -33,7 +33,7 @@ def extract_grade_statistics(module_number: str, limit_semesters=18) -> dict:
         )
     )
 
-    # take last 10 elements
+    # Limit the number of semesters to the last 'limit_semesters' entries
     limit_statistics_by_semester = statistics_by_semester[(-1*limit_semesters):]
 
     if len(limit_statistics_by_semester) == 0:
@@ -85,7 +85,7 @@ def extract_grade_statistics(module_number: str, limit_semesters=18) -> dict:
 
     return data
 
-def plot_diagram_as_file(data: dict, output_directory='plots') -> str:
+def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     if data is None or len(data) == 0:
         raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
 
@@ -99,30 +99,53 @@ def plot_diagram_as_file(data: dict, output_directory='plots') -> str:
     full_output_filename = os.path.abspath(output_filename)
     
     # draw combined diagram
-    df = pd.DataFrame(data)
-    df["% nicht ausreichend"] = (df["nicht ausreichend"] / df["Teilnehmer"]) * 100
-
-    amount_of_semesters = range(len(df["Semester"]))
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12))
+    df = pd.DataFrame(data).dropna()
 
     # Stacked bar chart
     categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
-    df.set_index("Semester")[categories].plot(kind="bar", stacked=True, ax=ax1)
-    ax1.set_title(f"Notenverteilung im Modul '{data['Name']}' ({data['Modulnummer']})")
-    ax1.set_xlabel("")
-    ax1.set_ylabel("Anzahl Teilnehmer")
-    ax1.set_xticks(amount_of_semesters)
-    ax1.set_xticklabels(df["Semester"], rotation=45, ha="right")
-    ax1.legend(title="Note")
+    colors = ["#2ecc71","#f1c40f","#3498db","#e67e22","#e74c3c" ]
+    
+    # Normalize to percentages
+    df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
 
-    # Percentage line chart
-    ax2.plot(amount_of_semesters, df["% nicht ausreichend"], marker="o", linestyle="-")
-    ax2.set_title("Durchfallquote")
-    ax2.set_xlabel("Semester")
-    ax2.set_ylabel("Anteil (%)")
-    ax2.set_xticks(amount_of_semesters)
-    ax2.set_xticklabels(df["Semester"], rotation=45, ha="right")
-    ax2.grid(True, linestyle="--", alpha=0.6)
+    # Normalize to percentages
+    df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
+
+    fig, ax = plt.subplots(figsize=(16, 8))
+
+    bottom = None
+    for idx, cat in enumerate(categories):
+        ax.bar(df["Semester"], df_percent[cat], bottom=bottom, label=cat, color=colors[idx])
+        if bottom is None:
+            bottom = df_percent[cat].copy()
+        else:
+            bottom += df_percent[cat]
+
+    # Add percentage labels inside bars
+    for i, semester in enumerate(df["Semester"]):
+        cumulative = 0
+        for idx, cat in enumerate(categories):
+            value = df_percent[cat].iloc[i]
+            if value > 0:  # only label non-empty sections
+                ax.text(
+                    i,
+                    cumulative + value / 2,
+                    f"{value:.0f}%",
+                    ha="center",
+                    va="center",
+                    color="black",
+                    fontsize=8
+                )
+            cumulative += value   
+
+
+    # Labels and legend
+    ax.set_title(f"Notenverteilung im Modul '{data['Name']}' ({data['Modulnummer']})")
+    ax.set_xlabel("Semester")
+    ax.set_ylabel("Prozent der Studierenden")
+    ax.set_xticks(range(len(df["Semester"])))
+    ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
+    ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
 
     plt.tight_layout()
     plt.savefig(full_output_filename)
@@ -139,7 +162,7 @@ def plot_all_statistics():
         print(f"Creating plots for module number: {module_number}")
 
         statistics = extract_grade_statistics(module_number)
-        full_file_path = plot_diagram_as_file(statistics)
+        full_file_path = plot_diagram_as_complex_file(statistics)
 
         plotted[module_number] = {
             "Path": full_file_path,
