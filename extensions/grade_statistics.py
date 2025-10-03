@@ -1,11 +1,12 @@
 import enum
+import os
 import re
 
 import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
 
-from models import Module, Download
+from models import Module, Download, ModuleGradeStatisticsGraphic
 
 
 class ModuleInformationNotFoundError(Exception):
@@ -28,17 +29,103 @@ class Topics(enum.Enum):
 class ModuleInformation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # self.update_loop.start()
 
-    # @tasks.loop(hours=24)
-    # # Replace with loop that checks if updates happened or not and send a notification in case it did not.
-    # async def update_loop(self):
-    #     pass
-    #     # await self.refresh_data()
+    # @app_commands.command(name="fmodule",
+    #                       description="Erhalte die Modulinformationen von der Uniwebseite.")
+    # @app_commands.describe(topic="Möchtest du eine bestimmte Rubrik abrufen?",
+    #                        module_nr="Nummer des Moduls, das dich interessiert. (In einem Moduilkanal optional).",
+    #                        public="Sichtbarkeit der Ausgabe: für alle Mitglieder oder nur für dich.")
+    # async def cmd_module(self, interaction: Interaction, topic: Topics = None, module_nr: int = None,
+    #                      public: bool = True):
+    #     await interaction.response.defer(ephemeral=not public)
 
-    # @update_loop.before_loop
-    # async def before_update_loop(self):
-    #     await self.bot.wait_until_ready()
+    #     try:
+    #         module = await self.find_module(interaction.channel, module_nr)
+    #         embed = await self.get_embed(module, topic)
+    #         await interaction.edit_original_response(embed=embed)
+    #     except NoCourseChannelError:
+    #         await interaction.edit_original_response(
+    #             content="Ich konnte keine Modulnummer finden. Bitte gib entweder die Modulnummer direkt an, "
+    #                     "oder verwende dieses Kommando in einem Modulkanal.")
+    #     except ModuleInformationNotFoundError as e:
+    #         if e.args and e.args[0]:
+    #             await interaction.edit_original_response(content=e.args[0])
+    #         else:
+    #             await interaction.edit_original_response(
+    #                 content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
+
+
+    @app_commands.command(name="klausurstatistiken",
+                          description="Erhalte eine Grafik der Klausurstatistiken für ein Modul.")
+    @app_commands.describe(module_nr="Nummer des Moduls, das dich interessiert.",
+                           public="Sichtbarkeit der Ausgabe: für alle Mitglieder oder nur für dich."
+                           )
+    async def cmd_module(self,
+                         interaction: Interaction, 
+                         module_nr: str = None,
+                         public: bool = True):
+        # await interaction.response.defer(ephemeral=not public)
+
+        module = await self.get_statistics_data(interaction.channel, module_nr)
+
+        with open(module.path, 'rb') as f:
+            picture = discord.File(f)
+            await interaction.channel.send(file=picture)
+
+        # try:
+        #     module = await self.find_module(interaction.channel, module_nr)
+        #     embed = await self.get_embed(module, topic)
+        #     await interaction.edit_original_response(embed=embed)
+        # except NoCourseChannelError:
+        #     await interaction.edit_original_response(
+        #         content="Ich konnte keine Modulnummer finden. Bitte gib entweder die Modulnummer direkt an, "
+        #                 "oder verwende dieses Kommando in einem Modulkanal.")
+        # except ModuleInformationNotFoundError as e:
+        #     if e.args and e.args[0]:
+        #         await interaction.edit_original_response(content=e.args[0])
+        #     else:
+        #         await interaction.edit_original_response(
+        #             content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
+
+    async def get_embed(self, module: Module, topic: Topics):
+        if topic == Topics.handbuch:
+            return await self.handbook(module)
+        elif topic == Topics.leseprobe:
+            return await self.reading_sample(module)
+        elif topic == Topics.aufwand:
+            return await self.effort(module)
+        elif topic == Topics.mentoriate:
+            return await self.support(module)
+        elif topic == Topics.pruefungen:
+            return await self.exams(module)
+        return await self.info(module)
+
+
+    @staticmethod
+    async def get_statistics_data(channel, number: str):
+        first_number = re.search(r"^([0-9]*)", number.strip())
+        if not first_number:
+            raise ValueError(f"Number could not be extracted")
+        
+        module_number= first_number.group(1)
+
+        found_module: ModuleGradeStatisticsGraphic = ModuleGradeStatisticsGraphic.get_or_none(ModuleGradeStatisticsGraphic.module_number == module_number)
+
+        if not found_module:
+            raise ModuleInformationNotFoundError(f"Zum Modul mit der Nummer {module_number} konnte ich keine Informationen "
+                                                 f"finden. Bitte geh sicher, dass dies ein gültiges Modul ist. "
+                                                 f"Ansonsten schreibe mir eine Direktnachricht und ich leite sie "
+                                                 f"weiter an das Mod-Team.")
+
+        path_to_plots = os.getenv('PLOTS_PATH')
+        path_on_file_system = os.path.join(path_to_plots, str(found_module.path))
+
+        found_module.path = path_on_file_system
+
+        if not os.path.exists(found_module.path):
+            raise ModuleInformationNotFoundError(f"Die Grafik für das Modul mit der Nummer {module_number} konnte nicht gefunden werden.")
+
+        return found_module
 
     @staticmethod
     async def find_module(channel, number):
@@ -146,43 +233,6 @@ class ModuleInformation(commands.Cog):
             embed.add_field(name=exam.name, value=desc, inline=False)
 
         return embed
-
-    async def get_embed(self, module: Module, topic: Topics):
-        if topic == Topics.handbuch:
-            return await self.handbook(module)
-        elif topic == Topics.leseprobe:
-            return await self.reading_sample(module)
-        elif topic == Topics.aufwand:
-            return await self.effort(module)
-        elif topic == Topics.mentoriate:
-            return await self.support(module)
-        elif topic == Topics.pruefungen:
-            return await self.exams(module)
-        return await self.info(module)
-
-    @app_commands.command(name="module",
-                          description="Erhalte die Modulinformationen von der Uniwebseite.")
-    @app_commands.describe(topic="Möchtest du eine bestimmte Rubrik abrufen?",
-                           module_nr="Nummer des Moduls, das dich interessiert. (In einem Moduilkanal optional).",
-                           public="Sichtbarkeit der Ausgabe: für alle Mitglieder oder nur für dich.")
-    async def cmd_module(self, interaction: Interaction, topic: Topics = None, module_nr: int = None,
-                         public: bool = True):
-        await interaction.response.defer(ephemeral=not public)
-
-        try:
-            module = await self.find_module(interaction.channel, module_nr)
-            embed = await self.get_embed(module, topic)
-            await interaction.edit_original_response(embed=embed)
-        except NoCourseChannelError:
-            await interaction.edit_original_response(
-                content="Ich konnte keine Modulnummer finden. Bitte gib entweder die Modulnummer direkt an, "
-                        "oder verwende dieses Kommando in einem Modulkanal.")
-        except ModuleInformationNotFoundError as e:
-            if e.args and e.args[0]:
-                await interaction.edit_original_response(content=e.args[0])
-            else:
-                await interaction.edit_original_response(
-                    content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
 
 
 async def setup(bot: commands.Bot) -> None:
