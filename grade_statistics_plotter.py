@@ -105,13 +105,14 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
     colors = ["#2ecc71","#f1c40f","#3498db","#e67e22","#e74c3c" ]
     
-    # Normalize to percentages
-    df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
+    categories.reverse()
+    colors.reverse()
 
     # Normalize to percentages
     df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
 
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=(24, 12))
+
 
     bottom = None
     for idx, cat in enumerate(categories):
@@ -147,8 +148,7 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
 
-    plt.tight_layout()
-    plt.savefig(full_output_filename)
+    plt.savefig(full_output_filename, dpi=300)
     plt.close()
 
     return full_output_filename
