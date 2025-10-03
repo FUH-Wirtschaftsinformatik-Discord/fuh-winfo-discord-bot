@@ -20,4 +20,10 @@ docker push rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.0
 sudo systemctl daemon-reload
 sudo systemctl enable --now test-scraper.timer
 sudo systemctl status test-scraper.timer
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now test-plotter.timer
+sudo systemctl status test-plotter.timer
+
+systemctl list-timers  --all
 ```

@@ -1,12 +1,12 @@
-# /etc/systemd/system/test-scraper.timer
+# /etc/systemd/system/test-plotter.timer
 [Unit]
-Description=Run test-scraper.service every 10 minutes
+Description=Run test-plotter.service every 15 minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=10min
+OnUnitActiveSec=15min
 AccuracySec=1min
-Unit=test-scraper.service
+Unit=test-plotter.service
 
 [Install]
 WantedBy=timers.target
