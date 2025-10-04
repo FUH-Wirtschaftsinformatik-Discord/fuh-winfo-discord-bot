@@ -1,14 +1,20 @@
+import asyncio
 from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
 from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
+import logging
+
+# Configure logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
 
 CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut"]
 CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
 
-def get_module_numbers() -> set[int]:
+async def get_module_numbers() -> set[int]:
     """
     Get all unique module numbers from the database.
     Returns a set of integers.
@@ -26,7 +32,7 @@ def get_module_numbers() -> set[int]:
     return set(sorted_module_numbers)
 
 
-def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
+async def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     """
     Extract grade statistics for a module from the database.
     Returns a dictionary with all relevant data for plotting.
@@ -138,7 +144,7 @@ def add_percentage_labels(ax: Axes, df_percent: pd.DataFrame, df_semester: pd.Da
                 )
             cumulative += value
 
-def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
+async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     """
     Plot a stacked bar chart of grade statistics as percentages and save as PNG file.
     Returns the full path to the saved file.
@@ -182,16 +188,19 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     return full_output_filename
 
 
-def plot_all_statistics():
+async def plot_all_statistics():
     """
     Generate and save plots for all modules in the database.
     Updates/creates ModuleGradeStatisticsGraphic entries for each module.
     """
-    print("Starting plot generation...")
-    for module_number in get_module_numbers():
-        print(f"Creating plots for module number: {module_number}")
-        statistics = extract_grade_statistics(module_number)
-        full_file_path = plot_diagram_as_complex_file(statistics)
+    logger.info("Starting plot generation...")
+    
+    module_numbers = await get_module_numbers()
+
+    for module_number in module_numbers:
+        logger.info(f"Creating plots for module number: {module_number}")
+        statistics = await extract_grade_statistics(module_number)
+        full_file_path = await plot_diagram_as_complex_file(statistics)
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
         graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
@@ -206,7 +215,9 @@ def plot_all_statistics():
             graphic_entry.module_number = module_number
             graphic_entry.path = file_name
             graphic_entry.save()
-        print(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
-    print("Plot generation completed.")
+        logger.info(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
+    
+    logger.info("Plot generation completed.")
 
-plot_all_statistics()
+if __name__ == "__main__":
+    asyncio.run(plot_all_statistics())

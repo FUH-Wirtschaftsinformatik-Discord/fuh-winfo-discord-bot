@@ -4,11 +4,15 @@ from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
 from models import ModuleGradeStatistics
 from grade_statistics import GradeStatistics
-
+import logging
 
 class GradeStatisticsScraper:
     # URL to scrape grade statistics from
     URL = "https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml"
+
+    def __init__(self):
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+        self.logger = logging.getLogger(__name__)
 
     async def download_page(self) -> ResultSet:
         """
@@ -55,7 +59,7 @@ class GradeStatisticsScraper:
                 # Parse table rows for module statistics
                 rows = element.find_all("tr")
                 if len(rows) != 3:
-                    print(f"Something is off with the table for {current_semester}, it has {len(rows)} rows.")
+                    self.logger.info(f"Something is off with the table for {current_semester}, it has {len(rows)} rows.")
                     continue
                 row_1 = [col.get_text(strip=True) for col in rows[0].find_all(["th", "td"])]
                 row_3 = [col.get_text(strip=True) for col in rows[2].find_all(["th", "td"])]
@@ -89,7 +93,7 @@ class GradeStatisticsScraper:
                     if row_3[5].strip().isnumeric():
                         module_insufficient_grade = int(row_3[5].strip())
                 except Exception:
-                    print(f"Error parsing numbers for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
+                    self.logger.info(f"Error parsing numbers for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
                     new_module.anonyomous = True
                 # Assign grades to module
                 new_module.very_good = module_very_good
@@ -99,11 +103,11 @@ class GradeStatisticsScraper:
                 new_module.insufficient = module_insufficient_grade
                 # Skip modules with zero participants
                 if new_module.get_participant_count() == 0:
-                    print(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
+                    self.logger.info(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
                     continue
                 extracted_modules.append(new_module)
-                print(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
-                print(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
+                self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
+                self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         return extracted_modules
 
     async def get_changes(self, modules: list[GradeStatistics]) -> dict:
@@ -187,7 +191,7 @@ class GradeStatisticsScraper:
                     )
                     txn.commit()
             except Exception as e:
-                print(f"Error adding module {module['module_number']} - {module['module_name']}: {e}")
+                self.logger.info(f"Error adding module {module['module_number']} - {module['module_name']}: {e}")
 
     async def store_updated(self, list_of_modules: list[ModuleGradeStatistics]):
         """
@@ -213,28 +217,35 @@ class GradeStatisticsScraper:
                     existing_study_module.save()
                     txn.commit()
             except Exception as e:
-                print(f"Error updating module {existing.module_number} - {existing.module_name}: {e}")
+                self.logger.info(f"Error updating module {existing.module_number} - {existing.module_name}: {e}")
 
     async def run(self):
         """
         Main entry point for scraping and syncing grade statistics.
         Downloads, parses, and updates the database as needed.
         """
-        print("Starting WiWi Scraper...")
-        print("Downloading page...")
+        self.logger.info("Starting WiWi Scraper...")
+
+        self.logger.info("Downloading page...")
         page_content = await self.download_page()
-        print("Extracting modules...")
+        self.logger.info("Extracting modules...")
+
         modules = await self.extract_modules(page_content)
-        print(f"Total modules found: {len(modules)}")
+
+        self.logger.info(f"Total modules found: {len(modules)}")
+
         change_container = await self.get_changes(modules)
-        print(f"Modules to add: {len(change_container['added_modules'])}")
-        print(f"Modules to update: {len(change_container['changed_modules'])}")
-        print("Storing changes to database...")
+        self.logger.info(f"Modules to add: {len(change_container['added_modules'])}")
+        self.logger.info(f"Modules to update: {len(change_container['changed_modules'])}")
+
+        self.logger.info("Storing changes to database...")
         await self.store_added(change_container["added_modules"])
-        print("Added new modules.")
+        self.logger.info("Added new modules.")
+
         await self.store_updated(change_container["changed_modules"])
-        print("Updated existing modules.")
-        print("Done.")
+        self.logger.info("Updated existing modules.")
+        
+        self.logger.info("Done.")
 
 if __name__ == "__main__":
     load_dotenv()
