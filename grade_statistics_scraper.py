@@ -21,7 +21,8 @@ class GradeStatisticsScraper:
 
     async def extract_modules(self, page_content: ResultSet) -> list[GradeStatistics]:
         modules: list[GradeStatistics] = []
-        semester_nr = 0
+        
+        year = 0
         examination_period = "Unknown"
         is_summer_semester = False
 
@@ -34,11 +35,11 @@ class GradeStatisticsScraper:
                     if has_slash:
                         years = semester_part.split("/")
                         if len(years) == 2 and years[0].isdigit() and years[1].isdigit():
-                            semester_nr = int(years[0])
-                            semester_nr += 1
+                            year = int(years[0])
+                            year += 1
                             is_summer_semester = False
                     elif semester_part.isdigit():
-                        semester_nr = int(semester_part)
+                        year = int(semester_part)
                     elif "sommer" in semester_part:
                         is_summer_semester = True
                     elif "winter" in semester_part:
@@ -58,7 +59,7 @@ class GradeStatisticsScraper:
                     module_number=module_number,
                     module_name=module_name,
                     is_summer_semester=is_summer_semester,
-                    year=semester_nr,
+                    year=year,
                     examination_period=examination_period
                 )
                 module_participants = 0
@@ -81,7 +82,7 @@ class GradeStatisticsScraper:
                     if row_3[5].strip().isnumeric():
                         module_insufficient_grade = int(row_3[5].strip())
                 except Exception:
-                    print(f"Error parsing numbers for module {module_number} - {module_name} in semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
+                    print(f"Error parsing numbers for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
                     new_module.anonyomous = True
                 
                 new_module.very_good = module_very_good
@@ -91,11 +92,11 @@ class GradeStatisticsScraper:
                 new_module.insufficient = module_insufficient_grade
 
                 if new_module.get_participant_count() == 0:
-                    print(f"Skipping: Module {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
+                    print(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
                     continue
 
                 modules.append(new_module)
-                print(f"Added module: {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
+                print(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
                 print(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         
         return modules
@@ -105,63 +106,60 @@ class GradeStatisticsScraper:
             "added_modules": [],
             "changed_modules": []
         }
-        for module in modules:
+        for changed_module in modules:
             existing_study_module: ModuleGradeStatistics = None
+
+            # Check if module already exists in the database
             try:
                 existing_study_module = ModuleGradeStatistics.get_or_none(
-                    module_number=module.module_number ,
-                    is_summer_semester=module.is_summer_semester ,
-                    examination_period=module.examination_period ,
-                    year=module.year
+                    module_number=changed_module.module_number ,
+                    is_summer_semester=changed_module.is_summer_semester ,
+                    examination_period=changed_module.examination_period ,
+                    year=changed_module.year
                 )
 
             except Exception:
                 existing_study_module = None
                 pass
 
-            new_very_good = module.very_good
-            new_good = module.good
-            new_satisfactory = module.satisfactory
-            new_sufficient = module.sufficient
-            new_insufficient = module.insufficient
+            # If it doesn't exist, add to added_modules
             if not existing_study_module:
                 change_container["added_modules"].append({
-                    "module_number": int(module.module_number),
-                    "module_name": module.module_name,
-                    "is_summer_semester": module.is_summer_semester,
-                    "year": module.year,
-                    "examination_period": module.examination_period,
-                    "anonymous": getattr(module, "anonyomous", False),
-                    "very_good": new_very_good,
-                    "good": new_good,
-                    "satisfactory": new_satisfactory,
-                    "sufficient": new_sufficient,
-                    "insufficient": new_insufficient
+                    "module_number": int(changed_module.module_number),
+                    "module_name": changed_module.module_name,
+                    "is_summer_semester": changed_module.is_summer_semester,
+                    "year": changed_module.year,
+                    "examination_period": changed_module.examination_period,
+                    "anonymous": getattr(changed_module, "anonyomous", False),
+                    "very_good": changed_module.very_good,
+                    "good": changed_module.good,
+                    "satisfactory": changed_module.satisfactory,
+                    "sufficient": changed_module.sufficient,
+                    "insufficient": changed_module.insufficient
                 })
                 continue
-            old_very_good = existing_study_module.very_good
-            old_good = existing_study_module.good
-            old_satisfactory = existing_study_module.satisfactory
-            old_sufficient = existing_study_module.sufficient
-            old_insufficient = existing_study_module.insufficient
-            changed = (
-                old_very_good != new_very_good or
-                old_good != new_good or
-                old_satisfactory != new_satisfactory or
-                old_sufficient != new_sufficient or
-                old_insufficient != new_insufficient
+
+            # If it exists, check if any grades have changed
+            has_module_changed = (
+                existing_study_module.very_good != changed_module.very_good or
+                existing_study_module.good != changed_module.good or
+                existing_study_module.satisfactory != changed_module.satisfactory or
+                existing_study_module.sufficient != changed_module.sufficient or
+                existing_study_module.insufficient != changed_module.insufficient
             )
-            if changed:
+
+            if has_module_changed:
                 change_container["changed_modules"].append({
                     "existing": existing_study_module,
                     "new_grades": {
-                        "very_good": new_very_good,
-                        "good": new_good,
-                        "satisfactory": new_satisfactory,
-                        "sufficient": new_sufficient,
-                        "insufficient": new_insufficient
+                        "very_good": changed_module.very_good,
+                        "good": changed_module.good,
+                        "satisfactory": changed_module.satisfactory,
+                        "sufficient": changed_module.sufficient,
+                        "insufficient": changed_module.insufficient
                     }
                 })
+
         return change_container
 
     async def store_added(self, list_of_modules: list[ModuleGradeStatistics]) -> None:
