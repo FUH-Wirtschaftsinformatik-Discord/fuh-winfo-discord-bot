@@ -111,8 +111,7 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     # Normalize to percentages
     df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
 
-    fig, ax = plt.subplots(figsize=(24, 12))
-
+    fig, ax = plt.subplots(figsize=(18, 9))
 
     bottom = None
     for idx, cat in enumerate(categories):
@@ -146,8 +145,10 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     ax.set_ylabel("Prozent der Studierenden")
     ax.set_xticks(range(len(df["Semester"])))
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
+    ax.set_ylim(0, 110)  # y-axis scale higher than 100%
     ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
 
+    plt.tight_layout()
     plt.savefig(full_output_filename, dpi=300)
     plt.close()
 
