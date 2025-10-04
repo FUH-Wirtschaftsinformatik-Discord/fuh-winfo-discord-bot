@@ -5,7 +5,10 @@ import os
 from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
 
 def get_module_numbers() -> set[int]:
-    # Get all unique module numbers from the database
+    """
+    Get all unique module numbers from the database.
+    Returns a set of integers.
+    """
     unique_module_numbers = list(
         ModuleGradeStatistics.select(ModuleGradeStatistics.module_number)
         .distinct()
@@ -15,14 +18,18 @@ def get_module_numbers() -> set[int]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
+
 def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
+    """
+    Extract grade statistics for a module from the database.
+    Returns a dictionary with all relevant data for plotting.
+    """
     if module_number is None or module_number <= 0:
         raise ValueError("Module number is not specified or is empty.")
     if limit_semesters <= 0:
         raise ValueError("Limit of semesters must be greater than zero.")
 
-    # Load all StudyModuleModel objects into memory (example for module_number == 31831)
-    # Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
+    # Query all statistics for the module, ordered by year and semester
     statistics_by_semester = list(
         ModuleGradeStatistics.select()
         .where(ModuleGradeStatistics.module_number == module_number)
@@ -39,37 +46,45 @@ def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    module_name=limit_statistics_by_semester[0].module_name.strip()
+    module_name = limit_statistics_by_semester[0].module_name.strip()
 
-    semester_labels: list[str] = []
-    participant_labels: list[int] = []
-    very_good_labels: list[int] = []
-    good_labels: list[int] = []
-    satisfactory_labels: list[int] = []
-    sufficient_labels: list[int] = []
-    insufficient_labels: list[int] = []
+    # Helper to build lists for plotting
+    def build_labels(modules):
+        """
+        Build lists for plotting from a list of module statistics.
+        Returns all required lists and a checksum.
+        """
+        semester_labels = []
+        participant_labels = []
+        very_good_labels = []
+        good_labels = []
+        satisfactory_labels = []
+        sufficient_labels = []
+        insufficient_labels = []
+        checksum = 0
+        for module in modules:
+            # Build semester label
+            if module.is_summer_semester:
+                semester_label = f"SS{module.year}"
+            else:
+                semester_label = f"WS{module.year-1}/{module.year}"
+            semester_labels.append(f"{semester_label} {module.examination_period}")
+            # Calculate participants
+            participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+            participant_labels.append(participants)
+            # Add grades
+            very_good_labels.append(module.very_good)
+            good_labels.append(module.good)
+            satisfactory_labels.append(module.satisfactory)
+            sufficient_labels.append(module.sufficient)
+            insufficient_labels.append(module.insufficient)
+            # Update checksum
+            checksum += participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum
 
-    checksum=0
+    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum = build_labels(limit_statistics_by_semester)
 
-    for module in limit_statistics_by_semester:
-    
-        semester_label=""
-        if module.is_summer_semester:
-            semester_label = f"SS{module.year}"
-        else:
-            semester_label = f"WS{module.year-1}/{module.year}"
-
-        semester_labels.append(f"{semester_label} {module.examination_period}")
-        participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
-        participant_labels.append(participants)
-        very_good_labels.append(module.very_good)   
-        good_labels.append(module.good)
-        satisfactory_labels.append(module.satisfactory)
-        sufficient_labels.append(module.sufficient)
-        insufficient_labels.append(module.insufficient)
-
-        checksum+=participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
-
+    # Build data dictionary for plotting
     data = {
         "Name": module_name,
         "Modulnummer": module_number,
@@ -82,63 +97,67 @@ def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
         "nicht ausreichend": insufficient_labels,
         "Checksum": checksum
     }
-
     return data
 
+
 def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
+    """
+    Plot a stacked bar chart of grade statistics as percentages and save as PNG file.
+    Returns the full path to the saved file.
+    """
     if data is None or len(data) == 0:
         raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
-
     if output_directory is None or len(output_directory.strip()) == 0:
         raise ValueError("Output directory is not specified or is empty.")
-
-    # prepare file path
+    # Prepare file path
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
     output_filename = os.path.join(output_directory, f"{data['Modulnummer']}.png")
     full_output_filename = os.path.abspath(output_filename)
-    
-    # draw combined diagram
+    # Prepare DataFrame
     df = pd.DataFrame(data).dropna()
-
-    # Stacked bar chart
+    # Stacked bar chart setup
     categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
-    colors = ["#2ecc71","#f1c40f","#3498db","#e67e22","#e74c3c" ]
-    
+    colors = ["#2ecc71", "#f1c40f", "#3498db", "#e67e22", "#e74c3c"]
     categories.reverse()
     colors.reverse()
-
     # Normalize to percentages
     df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
-
     fig, ax = plt.subplots(figsize=(18, 9))
-
-    bottom = None
-    for idx, category in enumerate(categories):
-        ax.bar(df["Semester"], df_percent[category], bottom=bottom, label=category, color=colors[idx])
-        if bottom is None:
-            bottom = df_percent[category].copy()
-        else:
-            bottom += df_percent[category]
-
-    # Add percentage labels inside bars
-    for i, semester in enumerate(df["Semester"]):
-        cumulative = 0
+    # Draw stacked bars
+    def draw_stacked_bars(ax, df_percent, categories, colors):
+        """
+        Draw stacked bars for each grade category.
+        """
+        bottom = None
         for idx, category in enumerate(categories):
-            value = df_percent[category].iloc[i]
-            if value > 0:  # only label non-empty sections
-                ax.text(
-                    i,
-                    cumulative + value / 2,
-                    f"{value:.0f}%",
-                    ha="center",
-                    va="center",
-                    color="black",
-                    fontsize=8
-                )
-            cumulative += value   
-
-
+            ax.bar(df["Semester"], df_percent[category], bottom=bottom, label=category, color=colors[idx])
+            if bottom is None:
+                bottom = df_percent[category].copy()
+            else:
+                bottom += df_percent[category]
+    draw_stacked_bars(ax, df_percent, categories, colors)
+    # Add percentage labels inside bars
+    def add_percentage_labels(ax, df_percent, categories):
+        """
+        Add percentage labels inside each bar segment.
+        """
+        for i, semester in enumerate(df["Semester"]):
+            cumulative = 0
+            for idx, category in enumerate(categories):
+                value = df_percent[category].iloc[i]
+                if value > 0:
+                    ax.text(
+                        i,
+                        cumulative + value / 2,
+                        f"{value:.0f}%",
+                        ha="center",
+                        va="center",
+                        color="black",
+                        fontsize=8
+                    )
+                cumulative += value
+    add_percentage_labels(ax, df_percent, categories)
     # Labels and legend
     ax.set_title(f"Notenverteilung im Modul '{data['Name']}' ({data['Modulnummer']})")
     ax.set_xlabel("Semester")
@@ -147,22 +166,22 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax.set_ylim(0, 110)  # y-axis scale higher than 100%
     ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
-
     plt.tight_layout()
     plt.savefig(full_output_filename, dpi=300)
     plt.close()
-
     return full_output_filename
 
-def plot_all_statistics():
-    print("Starting plot generation...")
 
+def plot_all_statistics():
+    """
+    Generate and save plots for all modules in the database.
+    Updates/creates ModuleGradeStatisticsGraphic entries for each module.
+    """
+    print("Starting plot generation...")
     for module_number in get_module_numbers():
         print(f"Creating plots for module number: {module_number}")
-
         statistics = extract_grade_statistics(module_number)
         full_file_path = plot_diagram_as_complex_file(statistics)
-
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
         graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
@@ -177,9 +196,7 @@ def plot_all_statistics():
             graphic_entry.module_number = module_number
             graphic_entry.path = file_name
             graphic_entry.save()
-
         print(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
-
     print("Plot generation completed.")
 
 plot_all_statistics()
