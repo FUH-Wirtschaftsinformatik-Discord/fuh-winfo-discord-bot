@@ -1,23 +1,19 @@
+import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
+from dotenv import load_dotenv
 from models import ModuleGradeStatistics
 from grade_statistics import GradeStatistics
-from dotenv import load_dotenv
-import asyncio
 
 class GradeStatisticsScraper:
     URL = "https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml"
-
-    def __init__(self, ):
-        self.session = httpx.AsyncClient()
 
     async def download_page(self) -> ResultSet:
         async with httpx.AsyncClient() as client:
             response = await client.get(self.URL)
             response.encoding = "utf-8"
             soup = BeautifulSoup(response.text, "html.parser")
-            all_elements = soup.find_all(["h2", "h3", "table"])
-            return all_elements
+            return soup.find_all(["h2", "h3", "table"])
 
     async def extract_modules(self, page_content: ResultSet) -> list[GradeStatistics]:
         modules: list[GradeStatistics] = []
@@ -211,31 +207,22 @@ class GradeStatisticsScraper:
 
     async def run(self):
         print("Starting WiWi Scraper...")
-
         print("Downloading page...")
         page_content = await self.download_page()
-        
         print("Extracting modules...")
         modules = await self.extract_modules(page_content)
         print(f"Total modules found: {len(modules)}")
-
         change_container = await self.get_changes(modules)
         print(f"Modules to add: {len(change_container['added_modules'])}")
         print(f"Modules to update: {len(change_container['changed_modules'])}")
-        
         print("Storing changes to database...")
         await self.store_added(change_container["added_modules"])
         print("Added new modules.")
         await self.store_updated(change_container["changed_modules"])
         print("Updated existing modules.")
-
         print("Done.")
 
 if __name__ == "__main__":
     load_dotenv()
-
     scraper = GradeStatisticsScraper()
-
-    scraper.run()
-
     asyncio.run(scraper.run())
