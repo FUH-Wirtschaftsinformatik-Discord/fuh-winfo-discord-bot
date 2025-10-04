@@ -32,10 +32,10 @@ async def get_module_numbers() -> set[int]:
     return set(sorted_module_numbers)
 
 # Helper to build lists for plotting
-def build_labels(modules: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, int]:
+def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
     """
     Build lists for plotting from a list of module statistics.
-    Returns all required lists and a checksum.
+    Returns all required lists.
     """
     semester_labels = []
     participant_labels = []
@@ -44,8 +44,8 @@ def build_labels(modules: list[ModuleGradeStatistics]) -> tuple[list, list, list
     satisfactory_labels = []
     sufficient_labels = []
     insufficient_labels = []
-    checksum = 0
-    for module in modules:
+
+    for module in grade_statistics:
         # Build semester label
         if module.is_summer_semester:
             semester_label = f"SS{module.year}"
@@ -61,9 +61,8 @@ def build_labels(modules: list[ModuleGradeStatistics]) -> tuple[list, list, list
         satisfactory_labels.append(module.satisfactory)
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
-        # Update checksum
-        checksum += participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
-    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum
+
+    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels
 
 async def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     """
@@ -94,7 +93,7 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
 
     module_name = limit_statistics_by_semester[0].module_name.strip()
 
-    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum = build_labels(limit_statistics_by_semester)
+    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels = build_labels(limit_statistics_by_semester)
 
     # Build data dictionary for plotting
     data = {
@@ -106,8 +105,7 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
         "gut": good_labels,
         "befriedigend": satisfactory_labels,
         "ausreichend": sufficient_labels,
-        "nicht ausreichend": insufficient_labels,
-        "Checksum": checksum
+        "nicht ausreichend": insufficient_labels
     }
     return data
 
@@ -185,7 +183,6 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     plt.close()
 
     return full_output_filename
-
 
 async def plot_all_statistics():
     """
