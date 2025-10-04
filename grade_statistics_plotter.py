@@ -4,7 +4,7 @@ from peewee import Case
 import os
 from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
 
-def get_module_numbers() -> set[str]:
+def get_module_numbers() -> set[int]:
     # Get all unique module numbers from the database
     unique_module_numbers = list(
         ModuleGradeStatistics.select(ModuleGradeStatistics.module_number)
@@ -15,17 +15,17 @@ def get_module_numbers() -> set[str]:
     unique_module_numbers = set([num[0] for num in unique_module_numbers])
     return unique_module_numbers
 
-def extract_grade_statistics(module_number: str, limit_semesters=20) -> dict:
-    if module_number is None or len(module_number.strip()) == 0:
+def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
+    if module_number is None or module_number <= 0:
         raise ValueError("Module number is not specified or is empty.")
     if limit_semesters <= 0:
         raise ValueError("Limit of semesters must be greater than zero.")
 
-    # Load all StudyModuleModel objects into memory (example for module_number == "31831")
+    # Load all StudyModuleModel objects into memory (example for module_number == 31831)
     # Order by year, then is_summer_semester (1 first), then examination_period with P2 last using peewee.Case
     statistics_by_semester = list(
         ModuleGradeStatistics.select()
-        .where(ModuleGradeStatistics.module_number == module_number.strip())
+        .where(ModuleGradeStatistics.module_number == module_number)
         .order_by(
             ModuleGradeStatistics.year,
             ModuleGradeStatistics.is_summer_semester.asc(),
@@ -72,7 +72,7 @@ def extract_grade_statistics(module_number: str, limit_semesters=20) -> dict:
 
     data = {
         "Name": module_name,
-        "Modulnummer": module_number.strip(),
+        "Modulnummer": module_number,
         "Semester": semester_labels,
         "Teilnehmer": participant_labels,
         "sehr gut": very_good_labels,
@@ -95,7 +95,7 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     # prepare file path
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
-    output_filename = os.path.join(output_directory, f"{data['Modulnummer'].strip()}.png".strip().lower())
+    output_filename = os.path.join(output_directory, f"{data['Modulnummer']}.png")
     full_output_filename = os.path.abspath(output_filename)
     
     # draw combined diagram
@@ -157,17 +157,11 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
 def plot_all_statistics():
     print("Starting plot generation...")
 
-    plotted = {}
-
     for module_number in get_module_numbers():
         print(f"Creating plots for module number: {module_number}")
 
         statistics = extract_grade_statistics(module_number)
         full_file_path = plot_diagram_as_complex_file(statistics)
-
-        plotted[module_number] = {
-            "Path": full_file_path,
-        }
 
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)

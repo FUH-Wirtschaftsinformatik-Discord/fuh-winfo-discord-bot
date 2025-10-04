@@ -270,7 +270,7 @@ class Contact(BaseModel):
     module = ForeignKeyField(Module, backref='contacts')
 
 class ModuleGradeStatistics(BaseModel):
-    module_number = CharField()
+    module_number = IntegerField()
     module_name = CharField()
     is_summer_semester = BooleanField()
     year = IntegerField()
@@ -287,7 +287,7 @@ class ModuleGradeStatistics(BaseModel):
         composite_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
 class ModuleGradeStatisticsGraphic(BaseModel):
-    module_number = CharField(primary_key=True)
+    module_number = IntegerField(primary_key=True)
     path = CharField()
        
 

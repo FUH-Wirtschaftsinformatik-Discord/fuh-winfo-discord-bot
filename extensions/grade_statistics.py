@@ -1,6 +1,4 @@
-import enum
 import os
-import re
 
 import discord
 from discord import app_commands, Interaction
@@ -22,12 +20,12 @@ class GradeStatistics(commands.Cog):
                            )
     async def cmd_module(self,
                          interaction: Interaction, 
-                         module_nr: str = None,
-                         public: bool = True):       
+                         module_nummer: int = None,
+                         public: bool = False):       
 
         try:
             await interaction.response.defer(ephemeral=not public)
-            module = await self.get_statistics_data(module_nr)
+            module = await self.get_statistics_data(module_nummer)
 
             with open(module.path, 'rb') as f:
                 discord_file = discord.File(f, filename=f"klausurstatistiken.{module.module_number}.png")
@@ -35,15 +33,10 @@ class GradeStatistics(commands.Cog):
         except:
             await interaction.edit_original_response(content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
 
-
-
     @staticmethod
-    async def get_statistics_data(number: str) -> ModuleGradeStatisticsGraphic:
-        first_number = re.search(r"^([0-9]*)", number.strip())
-        if not first_number:
-            raise ValueError(f"Number could not be extracted")
-        
-        module_number= first_number.group(1)
+    async def get_statistics_data(module_number: int) -> ModuleGradeStatisticsGraphic:
+        if module_number is None or module_number <= 0:
+            raise ValueError(f"Invalid module number")
 
         found_module: ModuleGradeStatisticsGraphic = ModuleGradeStatisticsGraphic.get_or_none(ModuleGradeStatisticsGraphic.module_number == module_number)
 

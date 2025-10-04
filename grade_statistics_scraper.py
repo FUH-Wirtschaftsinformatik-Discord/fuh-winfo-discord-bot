@@ -125,7 +125,7 @@ class GradeStatisticsScraper:
             new_insufficient = module.get_grade("insufficient")
             if not existing_study_module:
                 change_container["added_modules"].append({
-                    "module_number": module.module_number,
+                    "module_number": int(module.module_number),
                     "module_name": module.module_name,
                     "is_summer_semester": module.is_summer_semester,
                     "year": module.year,
@@ -169,7 +169,7 @@ class GradeStatisticsScraper:
             try:
                 with ModuleGradeStatistics._meta.database.atomic() as txn:
                     ModuleGradeStatistics.create(
-                        module_number=module["module_number"],
+                        module_number=int(module["module_number"]),
                         module_name=module["module_name"],
                         is_summer_semester=module["is_summer_semester"],
                         year=module["year"],
@@ -218,7 +218,7 @@ class GradeStatisticsScraper:
         
         print("Extracting modules...")
         modules = await self.extract_modules(page_content)
-        print(f"\nTotal modules found: {len(modules)}")
+        print(f"Total modules found: {len(modules)}")
 
         change_container = await self.get_changes(modules)
         print(f"Modules to add: {len(change_container['added_modules'])}")
