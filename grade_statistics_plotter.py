@@ -31,6 +31,39 @@ async def get_module_numbers() -> set[int]:
 
     return set(sorted_module_numbers)
 
+# Helper to build lists for plotting
+def build_labels(modules: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, int]:
+    """
+    Build lists for plotting from a list of module statistics.
+    Returns all required lists and a checksum.
+    """
+    semester_labels = []
+    participant_labels = []
+    very_good_labels = []
+    good_labels = []
+    satisfactory_labels = []
+    sufficient_labels = []
+    insufficient_labels = []
+    checksum = 0
+    for module in modules:
+        # Build semester label
+        if module.is_summer_semester:
+            semester_label = f"SS{module.year}"
+        else:
+            semester_label = f"WS{module.year-1}/{module.year}"
+        semester_labels.append(f"{semester_label} {module.examination_period}")
+        # Calculate participants
+        participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        participant_labels.append(participants)
+        # Add grades
+        very_good_labels.append(module.very_good)
+        good_labels.append(module.good)
+        satisfactory_labels.append(module.satisfactory)
+        sufficient_labels.append(module.sufficient)
+        insufficient_labels.append(module.insufficient)
+        # Update checksum
+        checksum += participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum
 
 async def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     """
@@ -60,40 +93,6 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
     module_name = limit_statistics_by_semester[0].module_name.strip()
-
-    # Helper to build lists for plotting
-    def build_labels(modules):
-        """
-        Build lists for plotting from a list of module statistics.
-        Returns all required lists and a checksum.
-        """
-        semester_labels = []
-        participant_labels = []
-        very_good_labels = []
-        good_labels = []
-        satisfactory_labels = []
-        sufficient_labels = []
-        insufficient_labels = []
-        checksum = 0
-        for module in modules:
-            # Build semester label
-            if module.is_summer_semester:
-                semester_label = f"SS{module.year}"
-            else:
-                semester_label = f"WS{module.year-1}/{module.year}"
-            semester_labels.append(f"{semester_label} {module.examination_period}")
-            # Calculate participants
-            participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
-            participant_labels.append(participants)
-            # Add grades
-            very_good_labels.append(module.very_good)
-            good_labels.append(module.good)
-            satisfactory_labels.append(module.satisfactory)
-            sufficient_labels.append(module.sufficient)
-            insufficient_labels.append(module.insufficient)
-            # Update checksum
-            checksum += participants + module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
-        return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum
 
     semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, checksum = build_labels(limit_statistics_by_semester)
 
