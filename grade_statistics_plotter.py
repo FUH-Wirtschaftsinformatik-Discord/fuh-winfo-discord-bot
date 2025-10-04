@@ -1,8 +1,12 @@
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
 from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
+
+CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut"]
+CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
 
 def get_module_numbers() -> set[int]:
     """
@@ -15,8 +19,11 @@ def get_module_numbers() -> set[int]:
         .order_by(ModuleGradeStatistics.module_number)
         .tuples()
     )
-    unique_module_numbers = set([num[0] for num in unique_module_numbers])
-    return unique_module_numbers
+
+    sorted_module_numbers = [num[0] for num in unique_module_numbers]
+    sorted_module_numbers.sort()
+
+    return set(sorted_module_numbers)
 
 
 def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
@@ -99,6 +106,37 @@ def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     }
     return data
 
+def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFrame, categories: list, colors: list):
+    """
+    Draw stacked bars for each grade category.
+    """
+    bottom = None
+    for idx, category in enumerate(categories):
+        ax.bar(semester_df, df_percent[category], bottom=bottom, label=category, color=colors[idx])
+        if bottom is None:
+            bottom = df_percent[category].copy()
+        else:
+            bottom += df_percent[category]
+
+def add_percentage_labels(ax: Axes, df_percent: pd.DataFrame, df_semester: pd.DataFrame, categories: list):
+    """
+    Add percentage labels inside each bar segment.
+    """
+    for i, semester in enumerate(df_semester):
+        cumulative = 0
+        for idx, category in enumerate(categories):
+            value = df_percent[category].iloc[i]
+            if value > 0:
+                ax.text(
+                    i,
+                    cumulative + value / 2,
+                    f"{value:.0f}%",
+                    ha="center",
+                    va="center",
+                    color="black",
+                    fontsize=8
+                )
+            cumulative += value
 
 def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     """
@@ -114,61 +152,33 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
         os.makedirs(output_directory)
     output_filename = os.path.join(output_directory, f"{data['Modulnummer']}.png")
     full_output_filename = os.path.abspath(output_filename)
+
     # Prepare DataFrame
     df = pd.DataFrame(data).dropna()
-    # Stacked bar chart setup
-    categories = ["sehr gut", "gut", "befriedigend", "ausreichend", "nicht ausreichend"]
-    colors = ["#2ecc71", "#f1c40f", "#3498db", "#e67e22", "#e74c3c"]
-    categories.reverse()
-    colors.reverse()
+
     # Normalize to percentages
-    df_percent = df[categories].div(df["Teilnehmer"], axis=0) * 100
+    df_percent = df[CHART_CATEGORIES].div(df["Teilnehmer"], axis=0) * 100
     fig, ax = plt.subplots(figsize=(18, 9))
+
     # Draw stacked bars
-    def draw_stacked_bars(ax, df_percent, categories, colors):
-        """
-        Draw stacked bars for each grade category.
-        """
-        bottom = None
-        for idx, category in enumerate(categories):
-            ax.bar(df["Semester"], df_percent[category], bottom=bottom, label=category, color=colors[idx])
-            if bottom is None:
-                bottom = df_percent[category].copy()
-            else:
-                bottom += df_percent[category]
-    draw_stacked_bars(ax, df_percent, categories, colors)
+    draw_stacked_bars(ax, df_percent,df["Semester"], CHART_CATEGORIES, CHART_COLORS)
+
     # Add percentage labels inside bars
-    def add_percentage_labels(ax, df_percent, categories):
-        """
-        Add percentage labels inside each bar segment.
-        """
-        for i, semester in enumerate(df["Semester"]):
-            cumulative = 0
-            for idx, category in enumerate(categories):
-                value = df_percent[category].iloc[i]
-                if value > 0:
-                    ax.text(
-                        i,
-                        cumulative + value / 2,
-                        f"{value:.0f}%",
-                        ha="center",
-                        va="center",
-                        color="black",
-                        fontsize=8
-                    )
-                cumulative += value
-    add_percentage_labels(ax, df_percent, categories)
+    add_percentage_labels(ax, df_percent, df["Semester"], CHART_CATEGORIES)
     # Labels and legend
-    ax.set_title(f"Notenverteilung im Modul '{data['Name']}' ({data['Modulnummer']})")
+    ax.set_title(f"Notenverteilung im Modul '{data['Name']} ({data['Modulnummer']})'")
     ax.set_xlabel("Semester")
     ax.set_ylabel("Prozent der Studierenden")
     ax.set_xticks(range(len(df["Semester"])))
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax.set_ylim(0, 110)  # y-axis scale higher than 100%
-    ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
+    ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
+    
+    # Save plot to file
     plt.tight_layout()
     plt.savefig(full_output_filename, dpi=300)
     plt.close()
+
     return full_output_filename
 
 
