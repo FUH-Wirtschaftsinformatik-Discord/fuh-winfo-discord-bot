@@ -207,19 +207,25 @@ class GradeStatisticsScraper:
 
     async def run(self):
         print("Starting WiWi Scraper...")
+
         print("Downloading page...")
         page_content = await self.download_page()
         print("Extracting modules...")
+
         modules = await self.extract_modules(page_content)
+
         print(f"Total modules found: {len(modules)}")
         change_container = await self.get_changes(modules)
         print(f"Modules to add: {len(change_container['added_modules'])}")
         print(f"Modules to update: {len(change_container['changed_modules'])}")
+        
         print("Storing changes to database...")
         await self.store_added(change_container["added_modules"])
         print("Added new modules.")
+        
         await self.store_updated(change_container["changed_modules"])
         print("Updated existing modules.")
+        
         print("Done.")
 
 if __name__ == "__main__":

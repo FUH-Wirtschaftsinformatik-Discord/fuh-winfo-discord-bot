@@ -1,5 +1,6 @@
 class GradeStatistics:
-    def __init__(self, module_number: str, 
+    def __init__(self, 
+                 module_number: str, 
                  module_name: str,
                  is_summer_semester: bool,
                  year: int,
