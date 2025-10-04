@@ -39,7 +39,7 @@ def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    module_name=limit_statistics_by_semester[0].module_name if len(limit_statistics_by_semester) > 0 else "Unknown"
+    module_name=limit_statistics_by_semester[0].module_name.strip()
 
     semester_labels: list[str] = []
     participant_labels: list[int] = []
@@ -114,18 +114,18 @@ def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
     fig, ax = plt.subplots(figsize=(18, 9))
 
     bottom = None
-    for idx, cat in enumerate(categories):
-        ax.bar(df["Semester"], df_percent[cat], bottom=bottom, label=cat, color=colors[idx])
+    for idx, category in enumerate(categories):
+        ax.bar(df["Semester"], df_percent[category], bottom=bottom, label=category, color=colors[idx])
         if bottom is None:
-            bottom = df_percent[cat].copy()
+            bottom = df_percent[category].copy()
         else:
-            bottom += df_percent[cat]
+            bottom += df_percent[category]
 
     # Add percentage labels inside bars
     for i, semester in enumerate(df["Semester"]):
         cumulative = 0
-        for idx, cat in enumerate(categories):
-            value = df_percent[cat].iloc[i]
+        for idx, category in enumerate(categories):
+            value = df_percent[category].iloc[i]
             if value > 0:  # only label non-empty sections
                 ax.text(
                     i,

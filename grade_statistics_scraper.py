@@ -83,11 +83,12 @@ class GradeStatisticsScraper:
                 except Exception:
                     print(f"Error parsing numbers for module {module_number} - {module_name} in semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
                     new_module.anonyomous = True
-                new_module.add_grade("very_good", module_very_good)
-                new_module.add_grade("good", module_good)
-                new_module.add_grade("satisfactory", module_satisfactory)
-                new_module.add_grade("sufficient", module_sufficient)
-                new_module.add_grade("insufficient", module_insufficient_grade)
+                
+                new_module.very_good = module_very_good
+                new_module.good = module_good
+                new_module.satisfactory = module_satisfactory
+                new_module.sufficient = module_sufficient
+                new_module.insufficient = module_insufficient_grade
 
                 if new_module.get_participant_count() == 0:
                     print(f"Skipping: Module {module_number} - {module_name} for semester {semester_nr} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
@@ -99,7 +100,7 @@ class GradeStatisticsScraper:
         
         return modules
 
-    async def get_changes(self, modules):
+    async def get_changes(self, modules: list[GradeStatistics]) -> dict:
         change_container = {
             "added_modules": [],
             "changed_modules": []
@@ -118,11 +119,11 @@ class GradeStatisticsScraper:
                 existing_study_module = None
                 pass
 
-            new_very_good = module.get_grade("very_good")
-            new_good = module.get_grade("good")
-            new_satisfactory = module.get_grade("satisfactory")
-            new_sufficient = module.get_grade("sufficient") 
-            new_insufficient = module.get_grade("insufficient")
+            new_very_good = module.very_good
+            new_good = module.good
+            new_satisfactory = module.satisfactory
+            new_sufficient = module.sufficient
+            new_insufficient = module.insufficient
             if not existing_study_module:
                 change_container["added_modules"].append({
                     "module_number": int(module.module_number),

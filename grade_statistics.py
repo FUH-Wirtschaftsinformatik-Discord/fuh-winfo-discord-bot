@@ -11,24 +11,12 @@ class GradeStatistics:
         self.examination_period = examination_period
         self.grades_overview = {}  # key: student_id or exam_id, value: grade
         self.anonyomous=False
-
-    def add_grade(self, key: str, grade: int) -> None:
-        """Add or update a grade for a given key (e.g., student or exam attempt)."""
-        self.grades_overview[key] = grade
-
-    def get_grade(self, key: str) -> int:
-        """Retrieve the grade for a given key."""
-        return self.grades_overview.get(key)
-
-    def get_all_grades(self) -> dict:
-        """Return the entire overview of grades."""
-        return self.grades_overview
+        self.very_good=0
+        self.good=0
+        self.satisfactory=0
+        self.sufficient=0
+        self.insufficient=0
     
     def get_participant_count(self) -> int:
-        participants = 0
-
-        for grade in self.grades_overview.values():
-            if grade is not None:
-                participants += grade
-
+        participants = self.very_good + self.good + self.satisfactory + self.sufficient + self.insufficient
         return participants
