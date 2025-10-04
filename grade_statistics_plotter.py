@@ -199,6 +199,7 @@ async def plot_all_statistics():
         full_file_path = await plot_diagram_as_complex_file(statistics)
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
+
         graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
             module_number=module_number,
             defaults={
@@ -206,11 +207,13 @@ async def plot_all_statistics():
                 "path": file_name
             }
         )
+
         if not created:
             # Update existing entry
             graphic_entry.module_number = module_number
             graphic_entry.path = file_name
             graphic_entry.save()
+            
         logger.info(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
     
     logger.info("Plot generation completed.")
