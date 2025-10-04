@@ -3,7 +3,7 @@ name: fernuni_discord_bot
 services:
 
   plotter:
-    # image: rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.0
+    # image: rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.3
     build:
       context: .
       dockerfile: plotter.Dockerfile

@@ -15,7 +15,7 @@ class GradeStatistics(commands.Cog):
 
     @app_commands.command(name="klausurstatistiken",
                           description="Erhalte eine Grafik der Klausurstatistiken für ein Modul.")
-    @app_commands.describe(module_nr="Nummer des Moduls, das dich interessiert.",
+    @app_commands.describe(module_nummer="Nummer des Moduls, das dich interessiert.",
                            public="Sichtbarkeit der Ausgabe: für alle Mitglieder oder nur für dich."
                            )
     async def cmd_module(self,
