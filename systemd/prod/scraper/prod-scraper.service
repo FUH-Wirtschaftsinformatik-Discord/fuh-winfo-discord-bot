@@ -1,10 +1,10 @@
-# /etc/systemd/system/test-scraper.service
+# /etc/systemd/system/prod-scraper.service
 [Unit]
-Description=Test - Discord Bot - Scraper Service
+Description=Prod - Discord Bot - Scraper Service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/opt/projects/discord-bot/stages/test
-ExecStart=/usr/bin/docker compose -f /opt/projects/discord-bot/stages/test/docker-compose.scraping.yaml up -d
+WorkingDirectory=/opt/projects/discord-bot/stages/prod
+ExecStart=/usr/bin/docker compose -f /opt/projects/discord-bot/stages/prod/docker-compose.scraping.yaml up -d
 # Avoid parallel runs:
-ExecStartPre=/usr/bin/flock -n /var/lock/test-scraper.lock -c "echo locked"
+ExecStartPre=/usr/bin/flock -n /var/lock/prod-scraper.lock -c "echo locked"

@@ -91,7 +91,7 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    module_name = limit_statistics_by_semester[0].module_name.strip()
+    module_name = limit_statistics_by_semester[-1].module_name.strip()
 
     semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels = build_labels(limit_statistics_by_semester)
 
