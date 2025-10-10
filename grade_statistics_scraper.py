@@ -2,8 +2,10 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import ModuleGradeStatistics
+from models import Module, ModuleGradeStatistics
 from grade_statistics import GradeStatistics
+from itertools import groupby
+from operator import itemgetter
 import logging
 
 class GradeStatisticsScraper:
@@ -24,8 +26,29 @@ class GradeStatisticsScraper:
             response.encoding = "utf-8"
             soup = BeautifulSoup(response.text, "html.parser")
             return soup.find_all(["h2", "h3", "table"])
+        
 
-    async def extract_modules(self, page_content: ResultSet) -> list[GradeStatistics]:
+    def extract_modules(self, grade_statistics: list[GradeStatistics]) -> list[Module]:
+        sorted_grade_statistics = grade_statistics.copy()
+        sorted_grade_statistics.sort(key=lambda x: (x.module_number, x.year, x.is_summer_semester, x.examination_period))
+
+        modules = list()
+
+        for module_number,statistics in groupby(sorted_grade_statistics, key=lambda x: x.module_number):
+            statistics_list = list(statistics)
+            latest_statistic = statistics_list[-1]
+            
+            new_module: Module = Module()
+            new_module.number = int(latest_statistic.module_number)
+            new_module.title = latest_statistic.module_name
+
+            modules.append(new_module)
+
+        return modules
+
+                
+
+    async def extract_grade_statistics(self, page_content: ResultSet) -> list[GradeStatistics]:
         """
         Parse the HTML content and extract all module statistics.
         Returns a list of GradeStatistics objects.
@@ -230,11 +253,13 @@ class GradeStatisticsScraper:
         page_content = await self.download_page()
         self.logger.info("Extracting modules...")
 
-        modules = await self.extract_modules(page_content)
+        grade_statistics = await self.extract_grade_statistics(page_content)
 
-        self.logger.info(f"Total modules found: {len(modules)}")
+        modules = self.extract_modules(grade_statistics)
 
-        change_container = await self.get_changes(modules)
+        self.logger.info(f"Total modules found: {len(grade_statistics)}")
+
+        change_container = await self.get_changes(grade_statistics)
         self.logger.info(f"Modules to add: {len(change_container['added_modules'])}")
         self.logger.info(f"Modules to update: {len(change_container['changed_modules'])}")
 

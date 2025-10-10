@@ -227,7 +227,7 @@ class Course(BaseModel):
 class Module(BaseModel):
     number = IntegerField(primary_key=True)
     title = CharField()
-    url = CharField()
+    url = CharField(null=True)
     ects = CharField(null=True)
     effort = CharField(null=True)
     duration = CharField(null=True)
