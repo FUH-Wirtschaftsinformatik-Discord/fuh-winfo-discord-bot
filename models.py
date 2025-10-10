@@ -319,9 +319,9 @@ class ExtractedGradeStatistics:
         return participants
 
 
-
 # Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
      Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
+
 

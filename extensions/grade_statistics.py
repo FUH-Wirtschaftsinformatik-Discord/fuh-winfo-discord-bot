@@ -15,17 +15,17 @@ class GradeStatistics(commands.Cog):
 
     @app_commands.command(name="klausurstatistiken",
                           description="Erhalte eine Grafik der Klausurstatistiken für ein Modul.")
-    @app_commands.describe(module_nummer="Nummer des Moduls, das dich interessiert.",
+    @app_commands.describe(modul_nummer="Nummer des Moduls, das dich interessiert.",
                            public="Sichtbarkeit der Ausgabe: für alle Mitglieder oder nur für dich."
                            )
     async def cmd_module(self,
                          interaction: Interaction, 
-                         module_nummer: int = None,
+                         modul_nummer: int = None,
                          public: bool = False):       
 
         try:
             await interaction.response.defer(ephemeral=not public)
-            module = await self.get_statistics_data(module_nummer)
+            module = await self.get_statistics_data(modul_nummer)
 
             with open(module.path, 'rb') as f:
                 discord_file = discord.File(f, filename=f"klausurstatistiken.{module.number}.png")
