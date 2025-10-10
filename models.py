@@ -290,7 +290,7 @@ class ModuleGradeStatistics(BaseModel):
 
 
 class GradeStatisticsImage(BaseModel):
-    number = ForeignKeyField(UniversityModule, backref='grade_statistics_images_modules')
+    number = ForeignKeyField(UniversityModule, backref='grade_statistics_images_modules_1', primary_key=True)
     path = CharField()
     
 
@@ -319,6 +319,9 @@ class ExtractedGradeStatistics:
         return participants
 
 
+
+# Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
      Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
+

@@ -173,7 +173,7 @@ async def plot_all_statistics():
     """
     logger.info("Starting plot generation...")
     
-    all_modules = list(UniversityModule.select())
+    all_modules: list[UniversityModule] = list(UniversityModule.select())
 
     for module in all_modules:
 
@@ -183,21 +183,24 @@ async def plot_all_statistics():
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
 
-        graphic_entry, created = GradeStatisticsImage.get_or_create(
-            number=module.number,
-            defaults={
-                "number": module.number,
-                "path": file_name
-            }
-        )
+        # First, try to find by module number
+        graphic_entry = (GradeStatisticsImage
+                        .select()
+                        .join(UniversityModule)
+                        .where(UniversityModule.number == module.number)
+                        .first())
 
-        if not created:
-            # Update existing entry
-            graphic_entry.module_number = module.number
+        if graphic_entry:
+            # Update path of existing entry
             graphic_entry.path = file_name
             graphic_entry.save()
+        else:
+            graphic_entry = GradeStatisticsImage.create(
+                number=module,  # Pass the UniversityModule instance directly for ForeignKey
+                path=file_name
+            )
             
-        logger.info(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module.number} at {file_name}")
+        logger.info(f"Created/Updated graphic for module number: {module.number} at {file_name}")
     
     logger.info("Plot generation completed.")
 
