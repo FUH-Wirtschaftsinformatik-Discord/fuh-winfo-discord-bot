@@ -2,7 +2,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import FGradeStatistics, Module, QGradeStatistics
+from models import ExtractedGradeStatistics, Module, QGradeStatistics
 from itertools import groupby
 import logging
 
@@ -26,8 +26,8 @@ class GradeStatisticsScraper:
             return soup.find_all(["h2", "h3", "table"])
         
 
-    def extract_modules(self, grade_statistics: list[FGradeStatistics]) -> list[Module]:
-        sorted_grade_statistics = grade_statistics.copy()
+    def extract_modules(self, extracted_grade_statistics: list[ExtractedGradeStatistics]) -> list[Module]:
+        sorted_grade_statistics = extracted_grade_statistics.copy()
         sorted_grade_statistics.sort(key=lambda x: (x.module_number, x.year, x.is_summer_semester, x.examination_period))
 
         modules = list()
@@ -109,15 +109,16 @@ class GradeStatisticsScraper:
 
                 
 
-    async def extract_grade_statistics(self, page_content: ResultSet) -> list[FGradeStatistics]:
+    async def extract_grade_statistics(self, page_content: ResultSet) -> list[ExtractedGradeStatistics]:
         """
         Parse the HTML content and extract all module statistics.
         Returns a list of GradeStatistics objects.
         """
-        extracted_modules: list[FGradeStatistics] = []
+        extracted_grade_statistics: list[ExtractedGradeStatistics] = []
         year = 0
         examination_period = "Unknown"
         is_summer_semester = False
+
         # Iterate over all elements (headers and tables)
         for element in page_content:
             if element.name in ["h2", "h3"]:
@@ -149,7 +150,7 @@ class GradeStatisticsScraper:
                 row_3 = [col.get_text(strip=True) for col in rows[2].find_all(["th", "td"])]
                 module_number: str = row_1[0].strip()
                 module_name: str = row_1[1].strip()
-                new_module = FGradeStatistics(
+                new_extracted = ExtractedGradeStatistics(
                     module_number=int(module_number),
                     module_name=module_name,
                     is_summer_semester=is_summer_semester,
@@ -178,23 +179,23 @@ class GradeStatisticsScraper:
                         module_insufficient_grade = int(row_3[5].strip())
                 except Exception:
                     self.logger.info(f"Error parsing numbers for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Skipping this module.")
-                    new_module.anonyomous = True
+                    new_extracted.anonyomous = True
                 # Assign grades to module
-                new_module.very_good = module_very_good
-                new_module.good = module_good
-                new_module.satisfactory = module_satisfactory
-                new_module.sufficient = module_sufficient
-                new_module.insufficient = module_insufficient_grade
+                new_extracted.very_good = module_very_good
+                new_extracted.good = module_good
+                new_extracted.satisfactory = module_satisfactory
+                new_extracted.sufficient = module_sufficient
+                new_extracted.insufficient = module_insufficient_grade
                 # Skip modules with zero participants
-                if new_module.get_participant_count() == 0:
+                if new_extracted.get_participant_count() == 0:
                     self.logger.info(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
                     continue
-                extracted_modules.append(new_module)
+                extracted_grade_statistics.append(new_extracted)
                 self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
                 self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
-        return extracted_modules
+        return extracted_grade_statistics
 
-    async def get_changes_for_grade_statistics(self, modules: list[FGradeStatistics]) -> dict:
+    async def get_changes_for_grade_statistics(self, modules: list[ExtractedGradeStatistics]) -> dict:
         """
         Compare extracted modules with database entries and determine which modules are new or have changed grades.
         Returns a dictionary with lists of added and changed modules.
@@ -252,12 +253,12 @@ class GradeStatisticsScraper:
                 })
         return change_container
 
-    async def store_added_grade_statistics(self, list_of_modules: list[FGradeStatistics]) -> None:
+    async def store_added_grade_statistics(self, added: list[ExtractedGradeStatistics]) -> None:
         """
         Add new modules to the database.
         Each module in the list is inserted as a new record.
         """
-        for module in list_of_modules:
+        for module in added:
             try:
                 with QGradeStatistics._meta.database.atomic() as txn:
                     QGradeStatistics.create(
@@ -277,13 +278,13 @@ class GradeStatisticsScraper:
             except Exception as e:
                 self.logger.info(f"Error adding module {module['module_number']} - {module['module_name']}: {e}")
 
-    async def update_changed_grade_statistics(self, list_of_modules: list[FGradeStatistics]):
+    async def update_changed_grade_statistics(self, updated: list[ExtractedGradeStatistics]):
         """
         Update existing modules in the database with new grade values.
         Each module in the list is updated if grades have changed.
         """
-        for module_change in list_of_modules:
-            existing: FGradeStatistics = module_change["existing"]
+        for module_change in updated:
+            existing: ExtractedGradeStatistics = module_change["existing"]
             new_grades = module_change["new_grades"]
             try:
                 with QGradeStatistics._meta.database.atomic() as txn:

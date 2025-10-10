@@ -287,7 +287,14 @@ class QGradeStatistics(BaseModel):
     class Meta:
        primary_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
-class FGradeStatistics:
+class WWGradeStatisticsGraphic(BaseModel):
+    module_number = ForeignKeyField(Module, backref='grade_statistics_graphics')
+    path = CharField()
+
+    class Meta:
+        primary_key = CompositeKey('module_number')       
+
+class ExtractedGradeStatistics:
     def __init__(self, 
                  module_number: str, 
                  module_name: str,
@@ -310,13 +317,6 @@ class FGradeStatistics:
     def get_participant_count(self) -> int:
         participants = self.very_good + self.good + self.satisfactory + self.sufficient + self.insufficient
         return participants
-
-class WWGradeStatisticsGraphic(BaseModel):
-    module_number = ForeignKeyField(Module, backref='grade_statistics_graphics')
-    path = CharField()
-
-    class Meta:
-        primary_key = CompositeKey('module_number')       
 
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
