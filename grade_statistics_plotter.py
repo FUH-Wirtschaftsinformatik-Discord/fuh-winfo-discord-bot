@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import Module, QGradeStatistics, WWGradeStatisticsGraphic
+from models import Module, ModuleGradeStatistics, GradeStatisticsImage
 import logging
 
 # Configure logger
@@ -15,7 +15,7 @@ CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "
 CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
 
 # Helper to build lists for plotting
-def build_labels(grade_statistics: list[QGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
+def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
     """
     Build lists for plotting from a list of module statistics.
     Returns all required lists.
@@ -59,12 +59,12 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
 
     # Query all statistics for the module, ordered by year and semester
     statistics_by_semester = list(
-        QGradeStatistics.select()
-        .where(QGradeStatistics.module_number == module_number)
+        ModuleGradeStatistics.select()
+        .where(ModuleGradeStatistics.module_number == module_number)
         .order_by(
-            QGradeStatistics.year,
-            QGradeStatistics.is_summer_semester.asc(),
-            Case(None, ((QGradeStatistics.examination_period == "P2", 1),), 0)
+            ModuleGradeStatistics.year,
+            ModuleGradeStatistics.is_summer_semester.asc(),
+            Case(None, ((ModuleGradeStatistics.examination_period == "P2", 1),), 0)
         )
     )
 
@@ -183,7 +183,7 @@ async def plot_all_statistics():
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
 
-        graphic_entry, created = WWGradeStatisticsGraphic.get_or_create(
+        graphic_entry, created = GradeStatisticsImage.get_or_create(
             module_number=module.number,
             defaults={
                 "module_number": module.number,

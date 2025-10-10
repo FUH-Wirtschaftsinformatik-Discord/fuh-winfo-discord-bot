@@ -270,7 +270,7 @@ class Contact(BaseModel):
     name = CharField()
     module = ForeignKeyField(Module, backref='contacts')
 
-class QGradeStatistics(BaseModel):
+class ModuleGradeStatistics(BaseModel):
     module_number = ForeignKeyField(Module, backref='grade_statistics_modules')
 
     is_summer_semester = BooleanField()
@@ -287,7 +287,7 @@ class QGradeStatistics(BaseModel):
     class Meta:
        primary_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
-class WWGradeStatisticsGraphic(BaseModel):
+class GradeStatisticsImage(BaseModel):
     module_number = ForeignKeyField(Module, backref='grade_statistics_graphics')
     path = CharField()
 
@@ -320,7 +320,7 @@ class ExtractedGradeStatistics:
 
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, Module, Event, Support, Exam, Download, Contact, QGradeStatistics, WWGradeStatisticsGraphic], safe=True)
+     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
 
 migrator = SqliteMigrator(db)
 migrate(

@@ -4,7 +4,7 @@ import discord
 from discord import app_commands, Interaction
 from discord.ext import commands
 
-from models import WWGradeStatisticsGraphic
+from models import GradeStatisticsImage
 
 class ModuleInformationNotFoundError(Exception):
     pass
@@ -34,11 +34,11 @@ class GradeStatistics(commands.Cog):
             await interaction.edit_original_response(content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
 
     @staticmethod
-    async def get_statistics_data(module_number: int) -> WWGradeStatisticsGraphic:
+    async def get_statistics_data(module_number: int) -> GradeStatisticsImage:
         if module_number is None or module_number <= 0:
             raise ValueError(f"Invalid module number")
 
-        found_module: WWGradeStatisticsGraphic = WWGradeStatisticsGraphic.get_or_none(WWGradeStatisticsGraphic.module_number == module_number)
+        found_module: GradeStatisticsImage = GradeStatisticsImage.get_or_none(GradeStatisticsImage.module_number == module_number)
 
         if not found_module:
             raise ModuleInformationNotFoundError(f"Zum Modul mit der Nummer {module_number} konnte ich keine Informationen "

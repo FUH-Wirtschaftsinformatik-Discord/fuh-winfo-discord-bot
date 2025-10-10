@@ -2,7 +2,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import ExtractedGradeStatistics, Module, QGradeStatistics
+from models import ExtractedGradeStatistics, Module, ModuleGradeStatistics
 from itertools import groupby
 import logging
 
@@ -205,10 +205,10 @@ class GradeStatisticsScraper:
             "changed_modules": []
         }
         for changed_module in modules:
-            existing_study_module: QGradeStatistics = None
+            existing_study_module: ModuleGradeStatistics = None
             # Check if module already exists in the database
             try:
-                existing_study_module = QGradeStatistics.get_or_none(
+                existing_study_module = ModuleGradeStatistics.get_or_none(
                     module_number=changed_module.module_number,
                     is_summer_semester=changed_module.is_summer_semester,
                     examination_period=changed_module.examination_period,
@@ -260,8 +260,8 @@ class GradeStatisticsScraper:
         """
         for module in added:
             try:
-                with QGradeStatistics._meta.database.atomic() as txn:
-                    QGradeStatistics.create(
+                with ModuleGradeStatistics._meta.database.atomic() as txn:
+                    ModuleGradeStatistics.create(
                         module_number=int(module["module_number"]),
                         module_name=module["module_name"],
                         is_summer_semester=module["is_summer_semester"],
@@ -287,8 +287,8 @@ class GradeStatisticsScraper:
             existing: ExtractedGradeStatistics = module_change["existing"]
             new_grades = module_change["new_grades"]
             try:
-                with QGradeStatistics._meta.database.atomic() as txn:
-                    existing_study_module = QGradeStatistics.get_or_none(
+                with ModuleGradeStatistics._meta.database.atomic() as txn:
+                    existing_study_module = ModuleGradeStatistics.get_or_none(
                         module_number=existing.module_number,
                         is_summer_semester=existing.is_summer_semester,
                         examination_period=existing.examination_period,
