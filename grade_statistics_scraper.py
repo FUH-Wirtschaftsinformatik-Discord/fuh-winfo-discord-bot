@@ -133,7 +133,7 @@ class GradeStatisticsScraper:
                 self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         return extracted_modules
 
-    async def get_changes(self, modules: list[GradeStatistics]) -> dict:
+    async def get_changes_for_grade_statistics(self, modules: list[GradeStatistics]) -> dict:
         """
         Compare extracted modules with database entries and determine which modules are new or have changed grades.
         Returns a dictionary with lists of added and changed modules.
@@ -259,7 +259,7 @@ class GradeStatisticsScraper:
 
         self.logger.info(f"Total modules found: {len(grade_statistics)}")
 
-        change_container = await self.get_changes(grade_statistics)
+        change_container = await self.get_changes_for_grade_statistics(grade_statistics)
         self.logger.info(f"Modules to add: {len(change_container['added_modules'])}")
         self.logger.info(f"Modules to update: {len(change_container['changed_modules'])}")
 
