@@ -225,7 +225,7 @@ class Course(BaseModel):
     role_id = IntegerField()
 
 
-class Module(BaseModel):
+class UniversityModule(BaseModel):
     number = IntegerField(primary_key=True)
     title = CharField()
     url = CharField(null=True)
@@ -241,14 +241,14 @@ class Event(BaseModel):
     name = CharField()
     number = CharField()
     url = CharField()
-    module = ForeignKeyField(Module, backref='events')
+    module = ForeignKeyField(UniversityModule, backref='events')
 
 
 class Support(BaseModel):
     title = CharField()
     city = CharField()
     url = CharField()
-    module = ForeignKeyField(Module, backref='support')
+    module = ForeignKeyField(UniversityModule, backref='support')
 
 
 class Exam(BaseModel):
@@ -257,21 +257,22 @@ class Exam(BaseModel):
     requirements = CharField(null=True)
     weight = CharField(null=True)
     hard_requirements = CharField(null=True)
-    module = ForeignKeyField(Module, backref='exams')
+    module = ForeignKeyField(UniversityModule, backref='exams')
 
 
 class Download(BaseModel):
     title = CharField()
     url = CharField()
-    module = ForeignKeyField(Module, backref='downloads')
+    module = ForeignKeyField(UniversityModule, backref='downloads')
 
 
 class Contact(BaseModel):
     name = CharField()
-    module = ForeignKeyField(Module, backref='contacts')
+    module = ForeignKeyField(UniversityModule, backref='contacts')
+
 
 class ModuleGradeStatistics(BaseModel):
-    module_number = ForeignKeyField(Module, backref='grade_statistics_modules')
+    module_number = ForeignKeyField(UniversityModule, backref='module_grade_statistics_modules')
 
     is_summer_semester = BooleanField()
     year = IntegerField()
@@ -287,16 +288,15 @@ class ModuleGradeStatistics(BaseModel):
     class Meta:
        primary_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
-class GradeStatisticsImage(BaseModel):
-    module_number = ForeignKeyField(Module, backref='grade_statistics_graphics')
-    path = CharField()
 
-    class Meta:
-        primary_key = CompositeKey('module_number')       
+class GradeStatisticsImage(BaseModel):
+    number = ForeignKeyField(UniversityModule, backref='grade_statistics_images_modules')
+    path = CharField()
+    
 
 class ExtractedGradeStatistics:
     def __init__(self, 
-                 module_number: str, 
+                 module_number: int, 
                  module_name: str,
                  is_summer_semester: bool,
                  year: int,
@@ -318,13 +318,7 @@ class ExtractedGradeStatistics:
         participants = self.very_good + self.good + self.satisfactory + self.sufficient + self.insufficient
         return participants
 
+
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
-
-migrator = SqliteMigrator(db)
-migrate(
-    migrator.drop_column("module","url"),
-    migrator.add_column("module", "url", CharField(null=True))
-)
-
+     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)

@@ -2,7 +2,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import ExtractedGradeStatistics, Module, ModuleGradeStatistics
+from models import ExtractedGradeStatistics, UniversityModule, ModuleGradeStatistics
 from itertools import groupby
 import logging
 
@@ -25,8 +25,8 @@ class GradeStatisticsScraper:
             soup = BeautifulSoup(response.text, "html.parser")
             return soup.find_all(["h2", "h3", "table"])
         
-
-    def extract_modules(self, extracted_grade_statistics: list[ExtractedGradeStatistics]) -> list[Module]:
+    @staticmethod
+    def extract_modules(extracted_grade_statistics: list[ExtractedGradeStatistics]) -> list[UniversityModule]:
         sorted_grade_statistics = extracted_grade_statistics.copy()
         sorted_grade_statistics.sort(key=lambda x: (x.module_number, x.year, x.is_summer_semester, x.examination_period))
 
@@ -36,7 +36,7 @@ class GradeStatisticsScraper:
             statistics_list = list(statistics)
             latest_statistic = statistics_list[-1]
             
-            new_module: Module = Module()
+            new_module: UniversityModule = UniversityModule()
             new_module.number = int(latest_statistic.module_number)
             new_module.title = latest_statistic.module_name
 
@@ -44,7 +44,7 @@ class GradeStatisticsScraper:
 
         return modules
         
-    async def get_module_changes(self, modules: list[Module]) -> dict:
+    async def get_module_changes(self, modules: list[UniversityModule]) -> dict:
         """
         Compare extracted modules with database entries and determine which modules are new or have changed.
         Returns a dictionary with lists of new and changed modules.
@@ -57,7 +57,7 @@ class GradeStatisticsScraper:
         for module in modules:
             existing_module = None
             try:
-                existing_module = Module.get_or_none(number=module.number)
+                existing_module = UniversityModule.get_or_none(number=module.number)
             except Exception as e:
                 self.logger.error(f"Error checking module {module.number}: {e}")
                 continue
@@ -84,8 +84,8 @@ class GradeStatisticsScraper:
         # Store new modules
         for module in changes["new_modules"]:
             try:
-                with Module._meta.database.atomic() as txn:
-                    Module.create(
+                with UniversityModule._meta.database.atomic() as txn:
+                    UniversityModule.create(
                         number=module.number,
                         title=module.title
                     )
@@ -99,7 +99,7 @@ class GradeStatisticsScraper:
             existing = change["existing"]
             updated = change["updated"]
             try:
-                with Module._meta.database.atomic() as txn:
+                with UniversityModule._meta.database.atomic() as txn:
                     existing.title = updated.title
                     existing.save()
                     self.logger.info(f"Updated module: {existing.number} - {existing.title}")
@@ -317,7 +317,7 @@ class GradeStatisticsScraper:
 
         grade_statistics = await self.extract_grade_statistics(page_content)
 
-        modules = self.extract_modules(grade_statistics)
+        modules = GradeStatisticsScraper.extract_modules(grade_statistics)
         self.logger.info(f"Total modules found: {len(grade_statistics)}")
 
         # Process module changes first

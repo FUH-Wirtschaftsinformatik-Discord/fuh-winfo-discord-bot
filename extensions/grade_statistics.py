@@ -28,7 +28,7 @@ class GradeStatistics(commands.Cog):
             module = await self.get_statistics_data(module_nummer)
 
             with open(module.path, 'rb') as f:
-                discord_file = discord.File(f, filename=f"klausurstatistiken.{module.module_number}.png")
+                discord_file = discord.File(f, filename=f"klausurstatistiken.{module.number}.png")
                 await interaction.edit_original_response(attachments=[discord_file])
         except:
             await interaction.edit_original_response(content="Leider konnte ich keine Informationen zu diesem Modul/Kurs finden.")
@@ -38,7 +38,7 @@ class GradeStatistics(commands.Cog):
         if module_number is None or module_number <= 0:
             raise ValueError(f"Invalid module number")
 
-        found_module: GradeStatisticsImage = GradeStatisticsImage.get_or_none(GradeStatisticsImage.module_number == module_number)
+        found_module: GradeStatisticsImage = GradeStatisticsImage.get_or_none(GradeStatisticsImage.number == module_number)
 
         if not found_module:
             raise ModuleInformationNotFoundError(f"Zum Modul mit der Nummer {module_number} konnte ich keine Informationen "

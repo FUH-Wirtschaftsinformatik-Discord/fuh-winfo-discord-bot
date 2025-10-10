@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import Module, ModuleGradeStatistics, GradeStatisticsImage
+from models import UniversityModule, ModuleGradeStatistics, GradeStatisticsImage
 import logging
 
 # Configure logger
@@ -173,7 +173,7 @@ async def plot_all_statistics():
     """
     logger.info("Starting plot generation...")
     
-    all_modules = list(Module.select())
+    all_modules = list(UniversityModule.select())
 
     for module in all_modules:
 
@@ -184,9 +184,9 @@ async def plot_all_statistics():
         file_name = os.path.basename(full_file_path)
 
         graphic_entry, created = GradeStatisticsImage.get_or_create(
-            module_number=module.number,
+            number=module.number,
             defaults={
-                "module_number": module.number,
+                "number": module.number,
                 "path": file_name
             }
         )
