@@ -6,6 +6,7 @@ import discord
 from discord import Colour
 from peewee import *
 from peewee import ModelSelect
+from playhouse.migrate import *
 
 db = SqliteDatabase("data/db.sqlite3")
 
@@ -269,9 +270,9 @@ class Contact(BaseModel):
     name = CharField()
     module = ForeignKeyField(Module, backref='contacts')
 
-class ModuleGradeStatistics(BaseModel):
-    module_number = IntegerField()
-    module_name = CharField()
+class QGradeStatistics(BaseModel):
+    module_number = ForeignKeyField(Module, backref='grade_statistics_modules')
+
     is_summer_semester = BooleanField()
     year = IntegerField()
     examination_period = CharField()
@@ -284,14 +285,22 @@ class ModuleGradeStatistics(BaseModel):
     insufficient = IntegerField(default=0)
 
     class Meta:
-        composite_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
+       primary_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
 
-class ModuleGradeStatisticsGraphic(BaseModel):
-    module_number = IntegerField(primary_key=True)
+class WWGradeStatisticsGraphic(BaseModel):
+    module_number = ForeignKeyField(Module, backref='grade_statistics_graphics')
     path = CharField()
-       
+
+    class Meta:
+        primary_key = CompositeKey('module_number')       
 
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, Module, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, ModuleGradeStatisticsGraphic], safe=True)
+     Attendee, Course, Module, Event, Support, Exam, Download, Contact, QGradeStatistics, WWGradeStatisticsGraphic], safe=True)
+
+migrator = SqliteMigrator(db)
+migrate(
+    migrator.drop_column("module","url"),
+    migrator.add_column("module", "url", CharField(null=True))
+)
 

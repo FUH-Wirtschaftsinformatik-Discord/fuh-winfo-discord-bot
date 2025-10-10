@@ -2,8 +2,8 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import Module, ModuleGradeStatistics
-from grade_statistics import GradeStatistics
+from models import Module, QGradeStatistics
+from grade_statistics import FGradeStatistics
 from itertools import groupby
 from operator import itemgetter
 import logging
@@ -28,7 +28,7 @@ class GradeStatisticsScraper:
             return soup.find_all(["h2", "h3", "table"])
         
 
-    def extract_modules(self, grade_statistics: list[GradeStatistics]) -> list[Module]:
+    def extract_modules(self, grade_statistics: list[FGradeStatistics]) -> list[Module]:
         sorted_grade_statistics = grade_statistics.copy()
         sorted_grade_statistics.sort(key=lambda x: (x.module_number, x.year, x.is_summer_semester, x.examination_period))
 
@@ -45,15 +45,78 @@ class GradeStatisticsScraper:
             modules.append(new_module)
 
         return modules
+        
+    async def get_module_changes(self, modules: list[Module]) -> dict:
+        """
+        Compare extracted modules with database entries and determine which modules are new or have changed.
+        Returns a dictionary with lists of new and changed modules.
+        """
+        change_container = {
+            "new_modules": [],
+            "changed_modules": []
+        }
+        
+        for module in modules:
+            existing_module = None
+            try:
+                existing_module = Module.get_or_none(number=module.number)
+            except Exception as e:
+                self.logger.error(f"Error checking module {module.number}: {e}")
+                continue
+                
+            if not existing_module:
+                change_container["new_modules"].append(module)
+                continue
+                
+            # Check if title has changed
+            if existing_module.title != module.title:
+                change_container["changed_modules"].append({
+                    "existing": existing_module,
+                    "updated": module
+                })
+                
+        return change_container
+        
+    async def store_module_changes(self, changes: dict) -> None:
+        """
+        Save new and changed modules to the database.
+        Args:
+            changes: Dictionary containing lists of new and changed modules
+        """
+        # Store new modules
+        for module in changes["new_modules"]:
+            try:
+                with Module._meta.database.atomic() as txn:
+                    Module.create(
+                        number=module.number,
+                        title=module.title
+                    )
+                    self.logger.info(f"Added new module: {module.number} - {module.title}")
+                    txn.commit()
+            except Exception as e:
+                self.logger.error(f"Error adding module {module.number}: {e}")
+                
+        # Update changed modules
+        for change in changes["changed_modules"]:
+            existing = change["existing"]
+            updated = change["updated"]
+            try:
+                with Module._meta.database.atomic() as txn:
+                    existing.title = updated.title
+                    existing.save()
+                    self.logger.info(f"Updated module: {existing.number} - {existing.title}")
+                    txn.commit()
+            except Exception as e:
+                self.logger.error(f"Error updating module {existing.number}: {e}")
 
                 
 
-    async def extract_grade_statistics(self, page_content: ResultSet) -> list[GradeStatistics]:
+    async def extract_grade_statistics(self, page_content: ResultSet) -> list[FGradeStatistics]:
         """
         Parse the HTML content and extract all module statistics.
         Returns a list of GradeStatistics objects.
         """
-        extracted_modules: list[GradeStatistics] = []
+        extracted_modules: list[FGradeStatistics] = []
         year = 0
         examination_period = "Unknown"
         is_summer_semester = False
@@ -88,8 +151,8 @@ class GradeStatisticsScraper:
                 row_3 = [col.get_text(strip=True) for col in rows[2].find_all(["th", "td"])]
                 module_number: str = row_1[0].strip()
                 module_name: str = row_1[1].strip()
-                new_module = GradeStatistics(
-                    module_number=module_number,
+                new_module = FGradeStatistics(
+                    module_number=int(module_number),
                     module_name=module_name,
                     is_summer_semester=is_summer_semester,
                     year=year,
@@ -133,7 +196,7 @@ class GradeStatisticsScraper:
                 self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         return extracted_modules
 
-    async def get_changes_for_grade_statistics(self, modules: list[GradeStatistics]) -> dict:
+    async def get_changes_for_grade_statistics(self, modules: list[FGradeStatistics]) -> dict:
         """
         Compare extracted modules with database entries and determine which modules are new or have changed grades.
         Returns a dictionary with lists of added and changed modules.
@@ -143,10 +206,10 @@ class GradeStatisticsScraper:
             "changed_modules": []
         }
         for changed_module in modules:
-            existing_study_module: ModuleGradeStatistics = None
+            existing_study_module: QGradeStatistics = None
             # Check if module already exists in the database
             try:
-                existing_study_module = ModuleGradeStatistics.get_or_none(
+                existing_study_module = QGradeStatistics.get_or_none(
                     module_number=changed_module.module_number,
                     is_summer_semester=changed_module.is_summer_semester,
                     examination_period=changed_module.examination_period,
@@ -191,15 +254,15 @@ class GradeStatisticsScraper:
                 })
         return change_container
 
-    async def store_added(self, list_of_modules: list[ModuleGradeStatistics]) -> None:
+    async def store_added_grade_statistics(self, list_of_modules: list[FGradeStatistics]) -> None:
         """
         Add new modules to the database.
         Each module in the list is inserted as a new record.
         """
         for module in list_of_modules:
             try:
-                with ModuleGradeStatistics._meta.database.atomic() as txn:
-                    ModuleGradeStatistics.create(
+                with QGradeStatistics._meta.database.atomic() as txn:
+                    QGradeStatistics.create(
                         module_number=int(module["module_number"]),
                         module_name=module["module_name"],
                         is_summer_semester=module["is_summer_semester"],
@@ -216,17 +279,17 @@ class GradeStatisticsScraper:
             except Exception as e:
                 self.logger.info(f"Error adding module {module['module_number']} - {module['module_name']}: {e}")
 
-    async def store_updated(self, list_of_modules: list[ModuleGradeStatistics]):
+    async def update_changed_grade_statistics(self, list_of_modules: list[FGradeStatistics]):
         """
         Update existing modules in the database with new grade values.
         Each module in the list is updated if grades have changed.
         """
         for module_change in list_of_modules:
-            existing: ModuleGradeStatistics = module_change["existing"]
+            existing: FGradeStatistics = module_change["existing"]
             new_grades = module_change["new_grades"]
             try:
-                with ModuleGradeStatistics._meta.database.atomic() as txn:
-                    existing_study_module = ModuleGradeStatistics.get_or_none(
+                with QGradeStatistics._meta.database.atomic() as txn:
+                    existing_study_module = QGradeStatistics.get_or_none(
                         module_number=existing.module_number,
                         is_summer_semester=existing.is_summer_semester,
                         examination_period=existing.examination_period,
@@ -256,18 +319,27 @@ class GradeStatisticsScraper:
         grade_statistics = await self.extract_grade_statistics(page_content)
 
         modules = self.extract_modules(grade_statistics)
-
         self.logger.info(f"Total modules found: {len(grade_statistics)}")
 
+        # Process module changes first
+        module_changes = await self.get_module_changes(modules)
+        self.logger.info(f"New modules to add: {len(module_changes['new_modules'])}")
+        self.logger.info(f"Modules to update: {len(module_changes['changed_modules'])}")
+
+        self.logger.info("Storing module changes to database...")
+        await self.store_module_changes(module_changes)
+        self.logger.info("Module changes saved.")
+
+        # Process grade statistics changes
         change_container = await self.get_changes_for_grade_statistics(grade_statistics)
-        self.logger.info(f"Modules to add: {len(change_container['added_modules'])}")
-        self.logger.info(f"Modules to update: {len(change_container['changed_modules'])}")
+        self.logger.info(f"Grade statistics to add: {len(change_container['added_modules'])}")
+        self.logger.info(f"Grade statistics to update: {len(change_container['changed_modules'])}")
 
-        self.logger.info("Storing changes to database...")
-        await self.store_added(change_container["added_modules"])
-        self.logger.info("Added new modules.")
+        self.logger.info("Storing grade statistics changes to database...")
+        await self.store_added_grade_statistics(change_container["added_modules"])
+        self.logger.info("Added new grade statistics.")
 
-        await self.store_updated(change_container["changed_modules"])
+        await self.update_changed_grade_statistics(change_container["changed_modules"])
         self.logger.info("Updated existing modules.")
         
         self.logger.info("Done.")

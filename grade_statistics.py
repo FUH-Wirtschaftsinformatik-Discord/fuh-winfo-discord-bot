@@ -1,4 +1,4 @@
-class GradeStatistics:
+class FGradeStatistics:
     def __init__(self, 
                  module_number: str, 
                  module_name: str,

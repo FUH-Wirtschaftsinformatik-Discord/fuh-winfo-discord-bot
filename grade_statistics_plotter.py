@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import ModuleGradeStatistics, ModuleGradeStatisticsGraphic
+from models import Module, QGradeStatistics, WWGradeStatisticsGraphic
 import logging
 
 # Configure logger
@@ -14,25 +14,8 @@ logger = logging.getLogger(__name__)
 CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut"]
 CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
 
-async def get_module_numbers() -> set[int]:
-    """
-    Get all unique module numbers from the database.
-    Returns a set of integers.
-    """
-    unique_module_numbers = list(
-        ModuleGradeStatistics.select(ModuleGradeStatistics.module_number)
-        .distinct()
-        .order_by(ModuleGradeStatistics.module_number)
-        .tuples()
-    )
-
-    sorted_module_numbers = [num[0] for num in unique_module_numbers]
-    sorted_module_numbers.sort()
-
-    return set(sorted_module_numbers)
-
 # Helper to build lists for plotting
-def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
+def build_labels(grade_statistics: list[QGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
     """
     Build lists for plotting from a list of module statistics.
     Returns all required lists.
@@ -64,7 +47,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
 
     return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels
 
-async def extract_grade_statistics(module_number: int, limit_semesters=20) -> dict:
+async def extract_grade_statistics(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
     Extract grade statistics for a module from the database.
     Returns a dictionary with all relevant data for plotting.
@@ -76,12 +59,12 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
 
     # Query all statistics for the module, ordered by year and semester
     statistics_by_semester = list(
-        ModuleGradeStatistics.select()
-        .where(ModuleGradeStatistics.module_number == module_number)
+        QGradeStatistics.select()
+        .where(QGradeStatistics.module_number == module_number)
         .order_by(
-            ModuleGradeStatistics.year,
-            ModuleGradeStatistics.is_summer_semester.asc(),
-            Case(None, ((ModuleGradeStatistics.examination_period == "P2", 1),), 0)
+            QGradeStatistics.year,
+            QGradeStatistics.is_summer_semester.asc(),
+            Case(None, ((QGradeStatistics.examination_period == "P2", 1),), 0)
         )
     )
 
@@ -91,13 +74,11 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    module_name = limit_statistics_by_semester[-1].module_name.strip()
-
     semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels = build_labels(limit_statistics_by_semester)
 
     # Build data dictionary for plotting
-    data = {
-        "Name": module_name,
+    plot_data = {
+        "Name": module_title,
         "Modulnummer": module_number,
         "Semester": semester_labels,
         "Teilnehmer": participant_labels,
@@ -107,7 +88,8 @@ async def extract_grade_statistics(module_number: int, limit_semesters=20) -> di
         "ausreichend": sufficient_labels,
         "nicht ausreichend": insufficient_labels
     }
-    return data
+    
+    return plot_data
 
 def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFrame, categories: list, colors: list):
     """
@@ -191,30 +173,31 @@ async def plot_all_statistics():
     """
     logger.info("Starting plot generation...")
     
-    module_numbers = await get_module_numbers()
+    all_modules = list(Module.select())
 
-    for module_number in module_numbers:
-        logger.info(f"Creating plots for module number: {module_number}")
-        statistics = await extract_grade_statistics(module_number)
+    for module in all_modules:
+
+        logger.info(f"Creating plots for module number: {module.number}")
+        statistics = await extract_grade_statistics(module.number,module.title)
         full_file_path = await plot_diagram_as_complex_file(statistics)
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)
 
-        graphic_entry, created = ModuleGradeStatisticsGraphic.get_or_create(
-            module_number=module_number,
+        graphic_entry, created = WWGradeStatisticsGraphic.get_or_create(
+            module_number=module.number,
             defaults={
-                "module_number": module_number,
+                "module_number": module.number,
                 "path": file_name
             }
         )
 
         if not created:
             # Update existing entry
-            graphic_entry.module_number = module_number
+            graphic_entry.module_number = module.number
             graphic_entry.path = file_name
             graphic_entry.save()
             
-        logger.info(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module_number} at {file_name}")
+        logger.info(f"Created/Updated ModuleGradeStatisticsGraphic for module number: {module.number} at {file_name}")
     
     logger.info("Plot generation completed.")
 
