@@ -47,7 +47,7 @@ def build_labels(grade_statistics: list[QGradeStatistics]) -> tuple[list, list, 
 
     return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels
 
-async def extract_grade_statistics(module_number: int,module_title: str, limit_semesters=20) -> dict:
+async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
     Extract grade statistics for a module from the database.
     Returns a dictionary with all relevant data for plotting.
@@ -88,7 +88,7 @@ async def extract_grade_statistics(module_number: int,module_title: str, limit_s
         "ausreichend": sufficient_labels,
         "nicht ausreichend": insufficient_labels
     }
-    
+
     return plot_data
 
 def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFrame, categories: list, colors: list):
@@ -178,7 +178,7 @@ async def plot_all_statistics():
     for module in all_modules:
 
         logger.info(f"Creating plots for module number: {module.number}")
-        statistics = await extract_grade_statistics(module.number,module.title)
+        statistics = await generate_plot_data(module.number,module.title)
         full_file_path = await plot_diagram_as_complex_file(statistics)
         # Store only the filename (not full path)
         file_name = os.path.basename(full_file_path)

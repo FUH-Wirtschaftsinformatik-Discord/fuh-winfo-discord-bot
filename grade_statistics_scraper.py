@@ -2,10 +2,8 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
-from models import Module, QGradeStatistics
-from grade_statistics import FGradeStatistics
+from models import FGradeStatistics, Module, QGradeStatistics
 from itertools import groupby
-from operator import itemgetter
 import logging
 
 class GradeStatisticsScraper:
