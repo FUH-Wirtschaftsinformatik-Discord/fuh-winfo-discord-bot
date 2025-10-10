@@ -272,7 +272,7 @@ class Contact(BaseModel):
 
 
 class ModuleGradeStatistics(BaseModel):
-    module_number = ForeignKeyField(UniversityModule, backref='module_grade_statistics_modules')
+    module_number = ForeignKeyField(UniversityModule)
 
     is_summer_semester = BooleanField()
     year = IntegerField()
@@ -290,7 +290,7 @@ class ModuleGradeStatistics(BaseModel):
 
 
 class GradeStatisticsImage(BaseModel):
-    number = ForeignKeyField(UniversityModule, backref='grade_statistics_images_modules_1', primary_key=True)
+    number = ForeignKeyField(UniversityModule, primary_key=True)
     path = CharField()
     
 
