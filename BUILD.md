@@ -2,20 +2,20 @@
 
 ## Build
 
-```
+```bash
 docker build -f .\bot.Dockerfile -t rndintusr/fuh-winfo-discordbot:v1.1.2 .
 docker push rndintusr/fuh-winfo-discordbot:v1.1.2
 
 docker build -f .\scraper.Dockerfile -t rndintusr/fuh-winfo-discordbot-grade-scraper:v1.0.1 .
 docker push rndintusr/fuh-winfo-discordbot-grade-scraper:v1.0.1
 
-docker build -f .\plotter.Dockerfile -t rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.4 .
-docker push rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.4
+docker build -f .\plotter.Dockerfile -t rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.6 .
+docker push rndintusr/fuh-winfo-discordbot-grade-plotter:v1.0.6
 ```
 
-## Run 
+## Run
 
-```
+```bash
 sudo systemctl daemon-reload
 
 sudo systemctl enable --now test-scraper.timer
