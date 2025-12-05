@@ -12,11 +12,11 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut"]
-CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
+CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Statistik vorhanden"]
+CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#000000"]   
 
 # Helper to build lists for plotting
-def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
+def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, list]:
     """
     Build lists for plotting from a list of module statistics.
     Returns all required lists.
@@ -28,6 +28,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
     satisfactory_labels = []
     sufficient_labels = []
     insufficient_labels = []
+    no_statistics_labels = []
 
     for module in grade_statistics:
         # Build semester label
@@ -37,7 +38,8 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
             semester_label = f"WS{module.year-1}/{module.year}"
         semester_labels.append(f"{semester_label} {module.examination_period}")
         # Calculate participants
-        participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        sum_of_participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        participants = sum_of_participants if sum_of_participants > 0 else 1
         participant_labels.append(participants)
         # Add grades
         very_good_labels.append(module.very_good)
@@ -45,8 +47,9 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
         satisfactory_labels.append(module.satisfactory)
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
+        no_statistics_labels.append(0 if sum_of_participants > 0 else 1)
 
-    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels
+    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels,no_statistics_labels
 
 async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
@@ -75,7 +78,7 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels = build_labels(limit_statistics_by_semester)
+    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, no_statistics_labels = build_labels(limit_statistics_by_semester)
 
     # Build data dictionary for plotting
     plot_data = {
@@ -87,7 +90,8 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
         "gut": good_labels,
         "befriedigend": satisfactory_labels,
         "ausreichend": sufficient_labels,
-        "nicht ausreichend": insufficient_labels
+        "nicht ausreichend": insufficient_labels,
+        "keine Statistik vorhanden": no_statistics_labels
     }
 
     return plot_data
