@@ -152,10 +152,8 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     # Add percentage labels inside bars
     add_percentage_labels(ax, df_percent, df["Semester"], CHART_CATEGORIES)
     # Labels and legend
-    now = datetime.now()
-    now_str = now.strftime("%d.%m.%Y %H:%M")
 
-    ax.set_title(f"Notenstatistik - {data['Modulnummer']} - {data['Name']} (Stand: {now_str})")
+    ax.set_title(f"Notenstatistik - {data['Modulnummer']} - {data['Name']}")
 
     ax.set_xlabel("Semester")
     ax.set_ylabel("Prozent der Studierenden")
@@ -164,15 +162,15 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     ax.set_ylim(0, 110)  # y-axis scale higher than 100%
     
     # Legend is outside to the right
-    ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
+    ax.legend(title="Bewertung", bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=10)
 
-    # Add source text to bottom right
-    # ha='right' aligns it to the edge, va='bottom' aligns it to the bottom
-    ax.figure.text(0.99, 0.01, 'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen: https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml', 
-                   ha='right', va='bottom', fontsize=8, color='grey')
+    # Source text
+    now = datetime.now()
+    now_str = now.strftime("%d.%m.%Y %H:%M")
+    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {now_str})'
+    ax.figure.text(0.99, 0.01,source_text, ha='right', va='bottom', fontsize=8, color='grey')
     
     # Save plot to file
-    # rect=[left, bottom, right, top] -> reserves bottom 3% for the text
     plt.tight_layout(rect=[0, 0.03, 1, 1])
 
     plt.savefig(full_output_filename, dpi=300)
