@@ -12,8 +12,8 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Statistik vorhanden"]
-CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#000000"]   
+CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Statistik verfügbar"]
+CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#d3d3d3"]   
 
 # Helper to build lists for plotting
 def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, list]:
@@ -91,7 +91,7 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
         "befriedigend": satisfactory_labels,
         "ausreichend": sufficient_labels,
         "nicht ausreichend": insufficient_labels,
-        "keine Statistik vorhanden": no_statistics_labels
+        "keine Statistik verfügbar": no_statistics_labels
     }
 
     return plot_data
