@@ -12,8 +12,8 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Statistik verfügbar"]
-CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#d3d3d3"]   
+CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Daten verfügbar"]
+CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#ffffff"]   
 
 # Helper to build lists for plotting
 def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStatistics:
@@ -47,7 +47,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStati
         satisfactory_labels.append(module.satisfactory)
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
-        no_statistics_labels.append(0 if sum_of_participants > 0 else 1)
+        no_statistics_labels.append(0)
     
     semester_statistics = SemesterStatistics(semester_labels,
                              participant_labels, 
@@ -100,7 +100,7 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
         "befriedigend": semester_statistics.satisfactory,
         "ausreichend": semester_statistics.sufficient,
         "nicht ausreichend": semester_statistics.insufficient,
-        "keine Statistik verfügbar": semester_statistics.no_statistics
+        "keine Daten verfügbar": semester_statistics.no_statistics
     }
 
     return plot_data
@@ -146,6 +146,7 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
         raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
     if output_directory is None or len(output_directory.strip()) == 0:
         raise ValueError("Output directory is not specified or is empty.")
+    
     # Prepare file path
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -178,9 +179,8 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     ax.legend(title="Bewertung", bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=10)
 
     # Source text
-    now = datetime.now()
-    now_str = now.strftime("%d.%m.%Y %H:%M")
-    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {now_str})'
+    currentTime = datetime.now().strftime("%d.%m.%Y %H:%M")
+    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {currentTime})'
     ax.figure.text(0.99, 0.01,source_text, ha='right', va='bottom', fontsize=8, color='grey')
     
     # Save plot to file
