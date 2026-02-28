@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import List
 
 
-db = SqliteDatabase("data/db.sqlite3", pragmas={
+db = SqliteDatabase("db.sqlite3", pragmas={
     'journal_mode': 'wal',
     'cache_size': -1 * 64000})
 
