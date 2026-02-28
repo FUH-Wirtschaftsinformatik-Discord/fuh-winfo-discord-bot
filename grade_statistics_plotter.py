@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from peewee import Case
 import os
-from models import UniversityModule, ModuleGradeStatistics, GradeStatisticsImage
+from models import SemesterStatistics, UniversityModule, ModuleGradeStatistics, GradeStatisticsImage
 import logging
 from datetime import datetime
 
@@ -16,7 +16,7 @@ CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "
 CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#d3d3d3"]   
 
 # Helper to build lists for plotting
-def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, list]:
+def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStatistics:
     """
     Build lists for plotting from a list of module statistics.
     Returns all required lists.
@@ -48,8 +48,17 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
         no_statistics_labels.append(0 if sum_of_participants > 0 else 1)
+    
+    semester_statistics = SemesterStatistics(semester_labels,
+                             participant_labels, 
+                             very_good_labels,
+                             good_labels, 
+                             satisfactory_labels,
+                             sufficient_labels,
+                             insufficient_labels,
+                             no_statistics_labels)
 
-    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels,no_statistics_labels
+    return semester_statistics
 
 async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
@@ -78,20 +87,20 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, no_statistics_labels = build_labels(limit_statistics_by_semester)
+    semester_statistics = build_labels(limit_statistics_by_semester)
 
     # Build data dictionary for plotting
     plot_data = {
         "Name": module_title,
         "Modulnummer": module_number,
-        "Semester": semester_labels,
-        "Teilnehmer": participant_labels,
-        "sehr gut": very_good_labels,
-        "gut": good_labels,
-        "befriedigend": satisfactory_labels,
-        "ausreichend": sufficient_labels,
-        "nicht ausreichend": insufficient_labels,
-        "keine Statistik verfügbar": no_statistics_labels
+        "Semester": semester_statistics.semester,
+        "Teilnehmer": semester_statistics.participants,
+        "sehr gut": semester_statistics.very_good,
+        "gut": semester_statistics.good,
+        "befriedigend": semester_statistics.satisfactory,
+        "ausreichend": semester_statistics.sufficient,
+        "nicht ausreichend": semester_statistics.insufficient,
+        "keine Statistik verfügbar": semester_statistics.no_statistics
     }
 
     return plot_data
@@ -216,7 +225,7 @@ async def plot_all_statistics():
                 path=file_name
             )
             
-        logger.info(f"Created/Updated graphic for module number: {module.number} at {file_name}")
+        logger.info(f"Created/Updated graphic for module number: '{module.number}' at '{file_name}'")
     
     logger.info("Plot generation completed.")
 
