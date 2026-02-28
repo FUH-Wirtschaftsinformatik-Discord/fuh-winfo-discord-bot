@@ -14,31 +14,37 @@ class AppointmentView(discord.ui.View):
 
     @discord.ui.button(label='Anmelden', style=discord.ButtonStyle.green, custom_id='appointment_view:accept', emoji="👍")
     async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.reactivate_buttons('appointment_view:decline')        
+        
         if appointment := Appointment.get_or_none(Appointment.message == interaction.message.id):
             attendee = appointment.attendees.filter(member_id=interaction.user.id)
+            button.disabled = True
             if attendee:
                 await interaction.response.send_message("Du bist bereits Teilnehmerin dieses Termins.",
-                                                        ephemeral=True)
+                                                        ephemeral=True, view=self)
                 return
             else:
                 Attendee.create(appointment=appointment.id, member_id=interaction.user.id)
                 await interaction.message.edit(
-                    embed=appointment.get_embed(1 if appointment.reminder_sent and appointment.reminder > 0 else 0))
+                    embed=appointment.get_embed(1 if appointment.reminder_sent and appointment.reminder > 0 else 0), view=self)
         await interaction.response.defer(thinking=False)
 
     @discord.ui.button(label='Abmelden', style=discord.ButtonStyle.red, custom_id='appointment_view:decline', emoji="👎")
     async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.reactivate_buttons('appointment_view:accept')                         
+                
         if appointment := Appointment.get_or_none(Appointment.message == interaction.message.id):
             attendee = appointment.attendees.filter(member_id=interaction.user.id)
+            button.disabled = True
             if attendee:
                 attendee = attendee[0]
                 attendee.delete_instance()
                 
                 await interaction.message.edit(
-                    embed=appointment.get_embed(1 if appointment.reminder_sent and appointment.reminder > 0 else 0))
+                    embed=appointment.get_embed(1 if appointment.reminder_sent and appointment.reminder > 0 else 0), view=self)
             else:
                 await interaction.response.send_message("Du kannst nur absagen, wenn du vorher zugesagt hast.",
-                                                        ephemeral=True)
+                                                        ephemeral=True, view=self)
                 return
 
         await interaction.response.defer(thinking=False)
@@ -71,3 +77,10 @@ class AppointmentView(discord.ui.View):
             if interaction.user.id == appointment.author:
                 appointment.delete_instance(recursive=True)
                 await interaction.message.delete()
+                
+    def reactivate_buttons(self, opposite_button_id: str):
+        for child in self.children:
+            can_edit = child.custom_id == opposite_button_id and child.custom_id != 'appointment_view:skip'
+            if isinstance(child, discord.ui.Button) and can_edit:
+                child.disabled = False
+                
