@@ -1,0 +1,236 @@
+import os
+import json
+import discord
+from discord.ext import commands
+
+# --- Setup ---
+
+intents = discord.Intents.default()
+intents.message_content = True  # 👈 enable message content
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+
+
+LINKS_FILE = "links.json"
+
+def load_links():
+    if not os.path.exists(LINKS_FILE):
+        # Create an empty file if missing
+        with open(LINKS_FILE, "w") as f:
+            json.dump({}, f)
+    with open(LINKS_FILE, "r") as f:
+        return json.load(f)
+
+def save_links(links):
+    with open(LINKS_FILE, "w") as f:
+        json.dump(links, f, indent=4)
+    print(f"[DEBUG] Saved links.json: {links}")  # debug log
+
+
+class Dropdown(discord.ui.Select):
+    def __init__(self):
+        links = load_links()
+        options = [
+            #discord.SelectOption(label="Rules", description="View the server rules"),
+            #discord.SelectOption(label="Announcements", description="Go to announcements"),
+            discord.SelectOption(label=label, description=f"Get the {label}")
+            for label in links.keys()
+        ]
+        super().__init__(placeholder="Choose an option...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        links = load_links()
+        selected = self.values[0]
+        value = links.get(selected)
+
+        if value is None:
+            await interaction.response.send_message("⚠️ Link not found.", ephemeral=True)
+            return
+
+        if value.startswith("channel:"):
+            # Internal server channel
+            channel_id = int(value.split(":")[1])
+            channel = interaction.guild.get_channel(channel_id)
+            if channel:
+                await interaction.response.send_message(f"📌 {selected}: {channel.mention}", ephemeral=True)
+            else:
+                await interaction.response.send_message("⚠️ Channel not found.", ephemeral=True)
+        else:
+            # Normal external link
+            await interaction.response.send_message(f"🔗 {selected}: {value}", ephemeral=True)
+
+
+#class Dropdown(discord.ui.Select):
+#    def __init__(self):
+#        options = [
+#            discord.SelectOption(label="Rules", description="View the server rules"),
+#            discord.SelectOption(label="Announcements", description="Go to announcements"),
+#        ]
+#        super().__init__(placeholder="Choose an option...", min_values=1, max_values=1, options=options)
+#
+#    async def callback(self, interaction: discord.Interaction):
+#        guild_id = interaction.guild.id
+#        if self.values[0] == "Rules":
+#            channel = discord.utils.get(interaction.guild.channels, name="rules")
+#            if channel:
+#                link = f"https://discord.com/channels/{interaction.guild.id}/{channel.id}"
+#                await interaction.response.send_message(f"📘 Rules: {link}", ephemeral=True)
+#                #await interaction.response.send_message(f"📘 Rules: {channel.mention}", ephemeral=True)
+#        elif self.values[0] == "Announcements":
+#            channel = discord.utils.get(interaction.guild.channels, name="announcements")
+#            if channel:
+#                await interaction.response.send_message(f"📢 Announcements: {channel.mention}", ephemeral=True)
+
+
+#class Dropdown(discord.ui.Select):
+#    def __init__(self):
+#        links = load_links()
+#        options = [
+#            discord.SelectOption(label=label, description=f"Get the {label} link")
+#            for label in links.keys()
+#        ]
+#        super().__init__(placeholder="Choose an option...", min_values=1, max_values=1, options=options)
+#
+#    async def callback(self, interaction: discord.Interaction):
+#        links = load_links()
+#        selected = self.values[0]
+#        if selected in links:
+#            await interaction.response.send_message(f"{selected}: {links[selected]}", ephemeral=True)
+#        else:
+#            await interaction.response.send_message("Link not found.", ephemeral=True)
+
+
+class DropdownView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        self.add_item(Dropdown())
+
+
+@bot.command()
+async def links(ctx):
+    """Send the dynamic dropdown menu."""
+    await ctx.send("Choose a option:", view=DropdownView())
+
+
+@bot.command()
+@commands.has_permissions(administrator=True)  # or use server owner check
+async def setlink(ctx, label: str, url: str):
+    """Add a new link or update an existing one.
+    - External: !setlink Docs https://example.com
+    - Internal: !setlink Rules #rules
+    """
+    links = load_links()
+    
+    # Case 1: If value is a channel mention
+    if len(ctx.message.channel_mentions) > 0:
+        channel = ctx.message.channel_mentions[0]
+        links[label] = f"channel:{channel.id}"
+        display_value = f"#{channel.name}"
+    else:
+        # Case 2: External link (URL or text)
+        links[label] = url
+        display_value = url
+
+    save_links(links)
+
+    import os
+    file_path = os.path.abspath(LINKS_FILE)  # get absolute path
+
+    await ctx.send(
+        #f"✅ Link for **'{label}'** set to:\n{url}\n\n"
+        #f"(Saved in: `{file_path}`)"
+        f"✅ Link for '{label}' set to: {display_value}\n"
+        f"(Saved in: `{os.path.abspath(LINKS_FILE)}`)"
+    )
+
+
+
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def removelink(ctx, label: str):
+    """Remove a link from the dropdown.
+    (works for both external links and channel-based ones).
+    Usage: !removelink Docs
+    """
+    links = load_links()
+    
+    if label not in links:
+        await ctx.send(f"⚠️ Link '{label}' not found.")
+        return
+
+    removed_value = links.pop(label)
+    save_links(links)
+
+    # Format a nice display value
+    if removed_value.startswith("channel:"):
+        display_value = f"<#{removed_value.split(':')[1]}>"  # mention format
+    else:
+        display_value = removed_value
+
+    import os
+    await ctx.send(
+        f"❌ Link '{label}' removed (was: {display_value}).\n"
+        f"(Updated in: `{os.path.abspath(LINKS_FILE)}`)"
+    )
+
+@bot.command()
+async def listlinks(ctx):
+    """
+    Show all saved links (external and channels).
+    """
+    links = load_links()
+
+    if not links:
+        await ctx.send("📭 No links have been set yet.")
+        return
+
+    lines = []
+    for label, value in links.items():
+        if value.startswith("channel:"):
+            channel_id = int(value.split(":")[1])
+            lines.append(f"📌 **{label}** → <#{channel_id}>")  # channel mention
+        else:
+            lines.append(f"🔗 **{label}** → {value}")  # external link
+
+    msg = "\n".join(lines)
+    await ctx.send(f"📑 **Current links:**\n{msg}")
+
+
+
+@bot.command()
+async def debugpath(ctx):
+    """Show the absolute path to the links.json file"""
+    import os
+    await ctx.send(f"links.json is at: {os.path.abspath(LINKS_FILE)}")
+
+
+
+# --- Input Modal (Text Box) ---
+class MyModal(discord.ui.Modal, title="Enter Your Info"):
+    user_input = discord.ui.TextInput(label="What do you want?", placeholder="Type here...")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"✅ You entered: `{self.user_input}`", ephemeral=True)
+
+# --- Slash Commands (Application Commands) ---
+@bot.tree.command(name="getinfo", description="Choose from a dropdown menu")
+async def getinfo(interaction: discord.Interaction):
+    await interaction.response.send_message("Pick an option below:", view=DropdownView(), ephemeral=True)
+
+@bot.tree.command(name="inputbox", description="Open a text input box")
+async def inputbox(interaction: discord.Interaction):
+    await interaction.response.send_modal(MyModal())
+
+# --- Sync Commands ---
+@bot.event
+async def on_ready():
+    await bot.tree.sync()  # syncs slash commands to Discord
+    print(f"✅ Logged in as {bot.user}")
+
+# --- Run the Bot ---
+bot.run("YOUR_BOT_TOKEN_HERE")
+
+
+
+
