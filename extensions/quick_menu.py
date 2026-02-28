@@ -56,6 +56,29 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                  
         await interaction.edit_original_response(content=msg)                 
 
+    @app_commands.command(name="addlinks", description="Listet die Text Commands dieses Servers auf.")
+    # @app_commands.default_permissions(administrator=True)
+    async def cmd_addlinks(self, interaction: Interaction, label: str, url: str):
+        await interaction.response.defer(ephemeral=True)
+
+        links = self.load_links()
+        
+        # # Case 1: If value is a channel mention
+        # if len(interaction.message.channel_mentions) > 0:
+        #     channel = interaction.message.channel_mentions[0]
+        #     links[label] = f"channel:{channel.id}"
+        #     display_value = f"#{channel.name}"
+        # else:
+        #     # Case 2: External link (URL or text)
+        #     links[label] = url
+        #     display_value = url
+        
+        links[label] = url     
+
+        self.save_links(links)
+                         
+        await interaction.edit_original_response(content=f"✅ Link for '{label}' set to: {url}\n")         
+
 
     # OLD CODE
     # OLD CODE
