@@ -80,6 +80,33 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         await interaction.edit_original_response(content=f"✅ Link for '{label}' set to: {url}\n")         
 
 
+    @app_commands.command(name="removelinks", description="Listet die Text Commands dieses Servers auf.")
+    async def cmd_removelink(self, interaction: Interaction, label: str):
+        """Remove a link from the dropdown.
+        (works for both external links and channel-based ones).
+        Usage: !removelink Docs
+        """
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        links = self.load_links()
+        
+        if label not in links:
+            await interaction.edit_original_response(content=f"⚠️ Link '{label}' not found.")
+            return
+
+        removed_value = links.pop(label)
+        self.save_links(links)
+
+        # Format a nice display value
+        if removed_value.startswith("channel:"):
+            display_value = f"<#{removed_value.split(':')[1]}>"  # mention format
+        else:
+            display_value = removed_value
+
+        await interaction.edit_original_response(content=f"❌ Link '{label}' removed (was: {display_value}).\n")
+        
+
     # OLD CODE
     # OLD CODE
     # OLD CODE
