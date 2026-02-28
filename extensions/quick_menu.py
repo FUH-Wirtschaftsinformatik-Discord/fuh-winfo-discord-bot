@@ -20,7 +20,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         self.bot = bot
 
 
-    def load_links():
+    def load_links(self):
         if not os.path.exists(LINKS_FILE):
             # Create an empty file if missing
             with open(LINKS_FILE, "w") as f:
@@ -28,11 +28,42 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         with open(LINKS_FILE, "r") as f:
             return json.load(f)
 
-    def save_links(links):
+    def save_links(self,links):
         with open(LINKS_FILE, "w") as f:
             json.dump(links, f, indent=4)
         print(f"[DEBUG] Saved links.json: {links}")  # debug log
 
+    @app_commands.command(name="listlinks", description="Listet die Text Commands dieses Servers auf.")
+    # @app_commands.default_permissions(administrator=True)
+    async def cmd_listlinks(self, interaction: Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        links = self.load_links()
+        
+        if not links:
+            await interaction.edit_original_response(content="📭 No links have been set yet.")
+            return
+
+        lines = []
+        for label, value in links.items():
+            if value.startswith("channel:"):
+                channel_id = int(value.split(":")[1])
+                lines.append(f"📌 **{label}** → <#{channel_id}>")  # channel mention
+            else:
+                lines.append(f"🔗 **{label}** → {value}")  # external link
+        
+        msg = "\n".join(lines)    
+                 
+        await interaction.edit_original_response(content=msg)                 
+
+
+    # OLD CODE
+    # OLD CODE
+    # OLD CODE
+    # OLD CODE
+    # OLD CODE
+    # OLD CODE
+    # OLD CODE
 
     @app_commands.command(name="list", description="Listet die Text Commands dieses Servers auf.")
     @app_commands.default_permissions(administrator=True)
