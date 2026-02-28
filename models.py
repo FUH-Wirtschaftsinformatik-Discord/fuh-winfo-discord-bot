@@ -8,7 +8,9 @@ from peewee import *
 from peewee import ModelSelect
 from playhouse.migrate import *
 
-db = SqliteDatabase("data/db.sqlite3")
+db = SqliteDatabase("db.sqlite3", pragmas={
+    'journal_mode': 'wal',
+    'cache_size': -1 * 64000})
 
 
 class BaseModel(Model):
