@@ -6,16 +6,17 @@ from peewee import Case
 import os
 from models import UniversityModule, ModuleGradeStatistics, GradeStatisticsImage
 import logging
+from datetime import datetime
 
 # Configure logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut"]
-CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71"]   
+CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Statistik verfügbar"]
+CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#d3d3d3"]   
 
 # Helper to build lists for plotting
-def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list]:
+def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, list, list, list, list, list, list, list]:
     """
     Build lists for plotting from a list of module statistics.
     Returns all required lists.
@@ -27,6 +28,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
     satisfactory_labels = []
     sufficient_labels = []
     insufficient_labels = []
+    no_statistics_labels = []
 
     for module in grade_statistics:
         # Build semester label
@@ -36,7 +38,8 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
             semester_label = f"WS{module.year-1}/{module.year}"
         semester_labels.append(f"{semester_label} {module.examination_period}")
         # Calculate participants
-        participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        sum_of_participants = module.very_good + module.good + module.satisfactory + module.sufficient + module.insufficient
+        participants = sum_of_participants if sum_of_participants > 0 else 1
         participant_labels.append(participants)
         # Add grades
         very_good_labels.append(module.very_good)
@@ -44,8 +47,9 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> tuple[list, l
         satisfactory_labels.append(module.satisfactory)
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
+        no_statistics_labels.append(0 if sum_of_participants > 0 else 1)
 
-    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels
+    return semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels,no_statistics_labels
 
 async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
@@ -74,7 +78,7 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
     if len(limit_statistics_by_semester) == 0:
         raise ValueError(f"No data found for module number: {module_number}. Module might not exist (in the database).")
 
-    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels = build_labels(limit_statistics_by_semester)
+    semester_labels, participant_labels, very_good_labels, good_labels, satisfactory_labels, sufficient_labels, insufficient_labels, no_statistics_labels = build_labels(limit_statistics_by_semester)
 
     # Build data dictionary for plotting
     plot_data = {
@@ -86,7 +90,8 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
         "gut": good_labels,
         "befriedigend": satisfactory_labels,
         "ausreichend": sufficient_labels,
-        "nicht ausreichend": insufficient_labels
+        "nicht ausreichend": insufficient_labels,
+        "keine Statistik verfügbar": no_statistics_labels
     }
 
     return plot_data
@@ -151,16 +156,27 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     # Add percentage labels inside bars
     add_percentage_labels(ax, df_percent, df["Semester"], CHART_CATEGORIES)
     # Labels and legend
-    ax.set_title(f"Notenverteilung im Modul '{data['Name']} ({data['Modulnummer']})'")
+
+    ax.set_title(f"Notenstatistik - {data['Modulnummer']} - {data['Name']}")
+
     ax.set_xlabel("Semester")
     ax.set_ylabel("Prozent der Studierenden")
     ax.set_xticks(range(len(df["Semester"])))
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
     ax.set_ylim(0, 110)  # y-axis scale higher than 100%
-    ax.legend(title="Bewertung", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
+    
+    # Legend is outside to the right
+    ax.legend(title="Bewertung", bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=10)
+
+    # Source text
+    now = datetime.now()
+    now_str = now.strftime("%d.%m.%Y %H:%M")
+    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {now_str})'
+    ax.figure.text(0.99, 0.01,source_text, ha='right', va='bottom', fontsize=8, color='grey')
     
     # Save plot to file
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 1])
+
     plt.savefig(full_output_filename, dpi=300)
     plt.close()
 
