@@ -146,6 +146,7 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
         raise ValueError("No data provided for plotting. Data dictionary is empty or None.")
     if output_directory is None or len(output_directory.strip()) == 0:
         raise ValueError("Output directory is not specified or is empty.")
+    
     # Prepare file path
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -178,9 +179,8 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> 
     ax.legend(title="Bewertung", bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=10)
 
     # Source text
-    now = datetime.now()
-    now_str = now.strftime("%d.%m.%Y %H:%M")
-    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {now_str})'
+    currentTime = datetime.now().strftime("%d.%m.%Y %H:%M")
+    source_text =  f'Quelle: Klausurstatistik der Fakultät für Wirtschaftswissenschaften der FernUniversität in Hagen - https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml (abgerufen am {currentTime})'
     ax.figure.text(0.99, 0.01,source_text, ha='right', va='bottom', fontsize=8, color='grey')
     
     # Save plot to file
