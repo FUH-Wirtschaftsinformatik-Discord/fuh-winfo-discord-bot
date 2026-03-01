@@ -14,6 +14,8 @@ from views.text_command_view import TextCommandView
 
 LINKS_FILE = "links.json"
 
+# Idea: https://discord.com/channels/1022552869347536967/1459325418371809466
+
 @app_commands.guild_only()
 class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein Text"):
     def __init__(self, bot):
