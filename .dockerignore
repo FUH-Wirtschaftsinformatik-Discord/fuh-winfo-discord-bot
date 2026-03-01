@@ -76,12 +76,6 @@ target/
 .venv/
 venv/
 
-# data
-data/
-
-# docs
-docs/
-
 # PyCharm
 .idea
 
@@ -95,8 +89,12 @@ docs/
 # VS Code
 .vscode/
 
-# sqlite
-*.sqlite3
-
-# documentation
+# config and data
+data/
 docs/
+plots/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.json
+*.bak 

@@ -19,6 +19,8 @@ services:
       context: .
       dockerfile: scraper.Dockerfile
     user: appuser:appuser
+    depends_on:
+      - bot    
     volumes:
       - ./data:/app/data
 

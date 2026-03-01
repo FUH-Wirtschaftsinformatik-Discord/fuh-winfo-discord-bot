@@ -3,13 +3,7 @@
 *.pot
 *.pyc
 __pycache__
-*.sqlite3
-*.sqlite3-shm
-*.sqlite3-wal
 media
-
-# Backup files # 
-*.bak 
 
 # If you are using PyCharm #
 .idea
@@ -118,8 +112,11 @@ GitHub.sublime-settings
 !.vscode/launch.json 
 !.vscode/extensions.json 
 .history
-/data
 
-# misc
-results/*.png
-plots/*.png
+# config and data
+data/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.json
+*.bak 
