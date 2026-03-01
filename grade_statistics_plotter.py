@@ -8,12 +8,18 @@ from models import SemesterStatistics, UniversityModule, ModuleGradeStatistics, 
 import logging
 from datetime import datetime
 
-# Configure logger
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
-logger = logging.getLogger(__name__)
+# environment variables
+LOG_LEVEL_STR = os.getenv('LOG_LEVEL', 'INFO').upper()
+log_level = getattr(logging, LOG_LEVEL_STR, logging.INFO)
 
+# constants
 CHART_CATEGORIES = ["nicht ausreichend", "ausreichend", "befriedigend", "gut", "sehr gut", "keine Daten verfügbar"]
 CHART_COLORS = ["#e74c3c", "#e67e22", "#3498db", "#f1c40f", "#2ecc71" , "#ffffff"]   
+
+# Configure logger
+logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] [%(name)s]: %(message)s')
+logger = logging.getLogger(__name__)
+
 
 # Helper to build lists for plotting
 def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStatistics:
@@ -137,7 +143,7 @@ def add_percentage_labels(ax: Axes, df_percent: pd.DataFrame, df_semester: pd.Da
                 )
             cumulative += value
 
-async def plot_diagram_as_complex_file(data: dict, output_directory='plots') -> str:
+async def plot_diagram_as_complex_file(data: dict, output_directory='data/plots') -> str:
     """
     Plot a stacked bar chart of grade statistics as percentages and save as PNG file.
     Returns the full path to the saved file.

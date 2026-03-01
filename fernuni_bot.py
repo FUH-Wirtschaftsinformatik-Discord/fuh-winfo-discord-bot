@@ -17,10 +17,12 @@ GUILD_ID = int(os.getenv('DISCORD_GUILD'))
 ACTIVITY = os.getenv('DISCORD_ACTIVITY')
 OWNER = int(os.getenv('DISCORD_OWNER'))
 PIN_EMOJI = "📌"
+LOG_LEVEL_STR = os.getenv('LOG_LEVEL', 'INFO').upper()
+log_level = getattr(logging, LOG_LEVEL_STR, logging.INFO)
 
 intents = Intents.all()
-_log = logging.getLogger('discord.boty')
-
+logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] [%(name)s]: %(message)s')
+_log = logging.getLogger(__name__)
 
 class Boty(commands.Bot):
     def __init__(self, *args, **kwargs):

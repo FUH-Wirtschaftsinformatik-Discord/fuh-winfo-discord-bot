@@ -1,4 +1,5 @@
 import asyncio
+import os
 import httpx
 from bs4 import BeautifulSoup, ResultSet
 from dotenv import load_dotenv
@@ -11,7 +12,11 @@ class GradeStatisticsScraper:
     URL = "https://www.fernuni-hagen.de/wirtschaftswissenschaft/studium/klausurstatistik.shtml"
 
     def __init__(self):
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+        # environment variables
+        LOG_LEVEL_STR = os.getenv('LOG_LEVEL', 'INFO').upper()
+        log_level = getattr(logging, LOG_LEVEL_STR, logging.INFO)        
+        
+        logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] [%(name)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
 
     async def download_page(self) -> ResultSet:
