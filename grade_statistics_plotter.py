@@ -121,6 +121,8 @@ def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFr
     participants_labels = []
     for amount in participants:
         amount_label = f"N = {amount}"
+        if amount <= 1:
+            amount_label = "N <= 3"
         participants_labels.append(amount_label)
     
     for idx, category in enumerate(categories):
