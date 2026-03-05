@@ -111,17 +111,26 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
 
     return plot_data
 
-def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFrame, categories: list, colors: list):
+def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFrame, categories: list, colors: list, participants: list[int]):
     """
     Draw stacked bars for each grade category.
     """
     bottom = None
+    bars=None
+
+    participants_labels = []
+    for amount in participants:
+        amount_label = f"N = {amount}"
+        participants_labels.append(amount_label)
+    
     for idx, category in enumerate(categories):
-        ax.bar(semester_df, df_percent[category], bottom=bottom, label=category, color=colors[idx])
+        bars = ax.bar(semester_df, df_percent[category], bottom=bottom, label=category, color=colors[idx])
         if bottom is None:
             bottom = df_percent[category].copy()
         else:
             bottom += df_percent[category]
+    
+    ax.bar_label(bars, padding=3, labels=participants_labels, fontsize=8, color='black')
 
 def add_percentage_labels(ax: Axes, df_percent: pd.DataFrame, df_semester: pd.DataFrame, categories: list):
     """
@@ -167,7 +176,8 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='data/plots'
     fig, ax = plt.subplots(figsize=(18, 9))
 
     # Draw stacked bars
-    draw_stacked_bars(ax, df_percent,df["Semester"], CHART_CATEGORIES, CHART_COLORS)
+    participants:list[int] = df["Teilnehmer"].astype(int)
+    draw_stacked_bars(ax, df_percent,df["Semester"], CHART_CATEGORIES, CHART_COLORS, participants)
 
     # Add percentage labels inside bars
     add_percentage_labels(ax, df_percent, df["Semester"], CHART_CATEGORIES)
