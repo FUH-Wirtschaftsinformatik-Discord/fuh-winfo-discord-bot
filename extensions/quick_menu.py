@@ -6,7 +6,7 @@ from discord import CategoryChannel, app_commands, Interaction
 import discord
 from discord.ext import commands
 
-from views.module_view import ModuleView
+from views.quick_menu_view import QuickMenuView
 
 import hashlib
 import json
@@ -34,7 +34,7 @@ def save_modules_to_db(complete_database: any):
     """Saves the scraped module data to our local JSON database."""
     with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
         json.dump(complete_database, f, indent=4, ensure_ascii=False)
-    print(f"💾 Saved {len(complete_database)} modules to the database.")
+    print(f"Saved {len(complete_database)} modules to the database.")
 
 
 def fetch_modules_from_db_by_key(key: str):
@@ -79,24 +79,35 @@ def load_menu_config():
     return {
 
     }
-    
+
+
 def get_parent_category_name(menu_type: str):
     parent_category = ""
-    
-    if menu_type == "wiwi":
+
+    if menu_type == "pflicht-wiwi":
         return "Pflichtmodule Wirtschaftswissenschaften"
-    
-    return parent_category    
+
+    choice1 = "Wahlpflichmodule Informatik"
+    choice2 = "Wahlpflichtmodule Wirtschaftswissenschaften"
+    choice3 = "Pflichtmodule Informatik"
+    choice4 = "Pflichtmodule Wirtschaftswissenschaften"
+    choice5 = "Pflichtmodule Wirtschaftswissenschaften"
+    choice6 = "Wahlpflichmodule Wirtschaftsinformatik"
+    choice6 = "Pflichtmodule Mathematik"
+
+    return parent_category
+
 
 def convert_to_clean_string(input: str):
-    return input.lower().strip()    
+    return input.lower().strip()
+
 
 @app_commands.guild_only()
 class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein Text"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.menu_type = "wiwi"
+        self.menu_type = "pflicht-wiwi"
 
         # --- Hashing ---
         self.menu_hashes = {}
@@ -123,21 +134,23 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     @app_commands.command(name="pflichtmodule-wiwi", description="Zeigt ein Menü der Pflichtmodule für Wiwi an.")
     @app_commands.default_permissions(administrator=True)
     @app_commands.choices(menu_type=[
-            app_commands.Choice(name="📚 Wirtschaftswissenschaften (Wiwi)", value="wiwi"),
-            app_commands.Choice(name="💻 Informatik (Info)", value="info")
-        ])    
+        app_commands.Choice(
+            name="📚 Pflichtmodule - Wirtschaftswissenschaften (Wiwi)", value="pflicht-wiwi"),
+        app_commands.Choice(
+            name="💻 Pflichtmodule - Informatik (Info)", value="pflicht-info")
+    ])
     async def cmd_pflichtmodule_wiwi(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
-        
+
         parent_category = get_parent_category_name(menu_type.value)
-        clean_parent_category = convert_to_clean_string(parent_category)  
-        
+        clean_parent_category = convert_to_clean_string(parent_category)
+
         if not parent_category or len(parent_category) == 0:
             await interaction.followup.send("Unbekannter Menütyp. Bitte wähle einen gültigen Typ aus.", ephemeral=True)
-            return      
+            return
 
         # Fetch data (wrap in try/except in case your parsing logic hits an unexpected server error)
-        try:            
+        try:
             menu_items = self.get_module_categories(
                 interaction.guild.categories, clean_parent_category)
         except Exception as e:
@@ -169,7 +182,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         try:
             # Send a brand new message to the channel, completely separate from the slash command
             title = get_parent_category_name(menu_type.value)
-            view = ModuleView(title, menu_items, menu_type.value, page=0)
+            view = QuickMenuView(title, menu_items, menu_type.value, page=0)
             msg = f"📚 **{title}**\nKlicke auf das Menü um zu einem Modulchannel zu gelangen!"
             message = await interaction.channel.send(content=msg, view=view)
         except discord.Forbidden:
@@ -230,14 +243,14 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
-        
+
         for menu_key, config in self.menus.items():
 
             if config.get("channel_id") is None:
                 return
 
             guild = self.bot.get_guild(config["guild_id"])
-            
+
             if not guild:
                 return
 
@@ -264,8 +277,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
             try:
                 message = await channel.fetch_message(self.menus[menu_key]["message_id"])
-                view = ModuleView(title="Modulübersicht",
-                                modules=live_modules_data, menu_key=menu_key, page=0)
+                view = QuickMenuView(title="Modulübersicht",
+                                     modules=live_modules_data, menu_key=menu_key, page=0)
                 await message.edit(view=view)
 
                 self.menu_hashes[self.menu_type] = new_hash
@@ -275,7 +288,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 # Handle deleted message...
                 self.menus[self.menu_type]["message_id"] = None
                 pass
-    
+
     @menu_updater_loop.before_loop
     async def before_updater(self):
         # Wait until the bot is fully logged in before starting the loop
@@ -359,16 +372,16 @@ async def setup(bot: commands.Bot) -> None:
     # 1. Instantly load the last known good state from our local database!
     saved_modules = fetch_modules_from_db()
 
-    # 2. Register the view so buttons work instantly after a reboot    
+    # 2. Register the view so buttons work instantly after a reboot
     for menu_key, modules_list in saved_modules.items():
-            # Register a view for EACH menu!
-            title = "Modulübersicht" # Or map this dynamically based on menu_key
-            
-            # 3. Calculate the hash so the loop knows where we left off
-            text_commands.menu_hashes[menu_key] = generate_data_hash(
-                saved_modules)            
-            
-            bot.add_view(ModuleView(title=title, modules=modules_list, menu_key=menu_key, page=0))    
+        # Register a view for EACH menu!
+        title = "Modulübersicht"  # Or map this dynamically based on menu_key
 
+        # 3. Calculate the hash so the loop knows where we left off
+        text_commands.menu_hashes[menu_key] = generate_data_hash(
+            saved_modules)
+
+        bot.add_view(QuickMenuView(
+            title=title, modules=modules_list, menu_key=menu_key, page=0))
 
     await bot.add_cog(text_commands)
