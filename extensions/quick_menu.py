@@ -16,12 +16,64 @@ from discord.ext import tasks
 MODULES_DB_FILE = "data/modules_db.json"
 CONFIG_FILE = "data/menu_config.json"
 
+
+import json
+from dataclasses import dataclass
+
+# # 1. Define what a single module looks like
+# @dataclass
+# class ModuleItem:
+#     id: str
+#     description: str
+#     channel_id: int
+
+# # Your JSON string
+# json_string = """
+# {
+#     "pflicht-wiwi": [
+#         {
+#             "id": "12345",
+#             "description": "Modul1",
+#             "channel_id": 1482355330813001840
+#         },
+#         {
+#             "id": "45678",
+#             "description": "Modul2",
+#             "channel_id": 1482355549923184661
+#         }
+#     ]
+# }
+# """
+
+# # 2. Parse the JSON string into standard Python dictionaries and lists
+# raw_data = json.loads(json_string)
+
+# # 3. Deserialize it into your custom objects
+# deserialized_menus = {}
+
+# for menu_key, module_list in raw_data.items():
+#     # Loop through the list and convert each dictionary into a ModuleItem
+#     # The ** operator unpacks the dictionary keys directly into the dataclass parameters
+#     deserialized_menus[menu_key] = [ModuleItem(**item) for item in module_list]
+
+# # --- Testing the result ---
+# print(deserialized_menus["pflicht-wiwi"][0].description) 
+# # Output: Modul1
+# print(deserialized_menus["pflicht-wiwi"][1].channel_id)  
+# # Output: 1482355549923184661
+
         
 @dataclass
 class MenuConfig:
     guild_id: int | None
     channel_id: int | None
-    message_id: int | None       
+    message_id: int | None      
+    
+@dataclass
+class QuickMenuItem:
+    id: str | None
+    description: str | None
+    channel_id: int | None         
 
 def generate_data_hash(modules_list):
     """Converts the modules list into a unique hash string to detect changes."""
@@ -272,7 +324,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             try:
                 message = await channel.fetch_message(self.menus[menu_type]["message_id"])
                 view = QuickMenuView(title="Modulübersicht",
-                                     modules=live_modules_data, menu_key=menu_type, page=0)
+                                     modules=live_modules_data, menu_type=menu_type, page=0)
                 await message.edit(view=view)
 
                 self.menu_hashes[menu_type] = new_hash
@@ -376,6 +428,6 @@ async def setup(bot: commands.Bot) -> None:
             saved_modules)
 
         bot.add_view(QuickMenuView(
-            title=title, modules=modules_list, menu_key=menu_key, page=0))
+            title=title, modules=modules_list, menu_type=menu_key, page=0))
 
     await bot.add_cog(text_commands)
