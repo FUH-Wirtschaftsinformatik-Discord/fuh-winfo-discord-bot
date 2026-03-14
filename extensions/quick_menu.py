@@ -112,13 +112,17 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     @app_commands.command(name="pflichtmodule-wiwi", description="Zeigt ein Menü der Pflichtmodule für Wiwi an.")
     @app_commands.default_permissions(administrator=True)
-    async def cmd_pflichtmodule_wiwi(self, interaction: Interaction):
-        # 1. Defer EPHEMERALLY. The "bot is thinking" message is only visible to the admin.
+    @app_commands.choices(menu_type=[
+            app_commands.Choice(name="📚 Wirtschaftswissenschaften (Wiwi)", value="wiwi"),
+            app_commands.Choice(name="💻 Informatik (Info)", value="info")
+        ])    
+    async def cmd_pflichtmodule_wiwi(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
 
         # Fetch data (wrap in try/except in case your parsing logic hits an unexpected server error)
         try:
-            clean_parent_category = self.get_clean_parent_category()
+            tio = self.get_title(menu_type.value)
+            clean_parent_category = self.get_clean_parent_category(tio)
             menu_items = self.get_module_categories(
                 interaction.guild.categories, clean_parent_category)
         except Exception as e:
@@ -135,9 +139,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         if getattr(self, "menu_message_id", None) and getattr(self, "menu_channel_id", None):
             try:
                 old_channel = interaction.guild.get_channel(
-                    self.menus[self.menu_type]["channel_id"])
+                    self.menus[menu_type.value]["channel_id"])
                 if old_channel:
-                    old_message = await old_channel.fetch_message(self.menus[self.menu_type]["message_id"])
+                    old_message = await old_channel.fetch_message(self.menus[menu_type.value]["message_id"])
                     await old_message.delete()
             except discord.NotFound:
                 pass  # Old message was already deleted by a user, which is fine!
@@ -147,8 +151,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 2: SEND AS A STANDARD MESSAGE
         # ==========================================
-        msg = f"📚 **{self.get_title()}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
-        view = ModuleView(self.get_title(), menu_items, self.menu_type, page=0)
+        msg = f"📚 **{self.get_title(menu_type.value)}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
+        view = ModuleView(self.get_title(menu_type.value), menu_items, menu_type.value, page=0)
 
         try:
             # Send a brand new message to the channel, completely separate from the slash command
@@ -160,13 +164,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
         # ==========================================
-        self.menu_hashes[self.menu_type] = generate_data_hash(menu_items)
-        self.menus[self.menu_type]["guild_id"] = interaction.guild.id
-        self.menus[self.menu_type]["channel_id"] = interaction.channel.id
-        self.menus[self.menu_type]["message_id"] = message.id
+        self.menu_hashes[menu_type.value] = generate_data_hash(menu_items)
+        self.menus[menu_type.value]["guild_id"] = interaction.guild.id
+        self.menus[menu_type.value]["channel_id"] = interaction.channel.id
+        self.menus[menu_type.value]["message_id"] = message.id
 
         try:
-            save_menu_config(self.menu_type, interaction.guild.id,
+            save_menu_config(menu_type.value, interaction.guild.id,
                              interaction.channel.id, message.id)
             # Send a private success confirmation to the admin who ran the command
             await interaction.followup.send("✅ Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
@@ -211,56 +215,59 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
+        
+        for menu_key, config in self.menus.items():
 
-        current_menu = self.menus.get(self.menu_type)
-        if current_menu is None or current_menu.get("channel_id") is None:
-            return
+            if config.get("channel_id") is None:
+                return
 
-        guild = self.bot.get_guild(current_menu["guild_id"])
-        if not guild:
-            return
+            guild = self.bot.get_guild(config["guild_id"])
+            
+            if not guild:
+                return
 
-        clean_parent_category = self.get_clean_parent_category()
+            fufu = self.get_title(menu_key)
+            clean_parent_category = self.get_clean_parent_category(fufu)
 
-        # 1. Scrape the live data from Discord categories
-        live_modules_data = self.get_module_categories(
-            guild.categories, clean_parent_category)
+            # 1. Scrape the live data from Discord categories
+            live_modules_data = self.get_module_categories(
+                guild.categories, clean_parent_category)
 
-        # 2. Generate the hash to check if anything actually changed
-        new_hash = generate_data_hash(live_modules_data)
+            # 2. Generate the hash to check if anything actually changed
+            new_hash = generate_data_hash(live_modules_data)
 
-        # 3. SAVE the data to our local database!
-        save_modules_to_db_by_key(self.menu_type, live_modules_data)
+            # 3. SAVE the data to our local database!
+            save_modules_to_db_by_key(menu_key, live_modules_data)
 
-        # 4. Compare with the currently displayed menu
-        if new_hash == self.menu_hashes[self.menu_type]:
-            return  # Nothing changed, skip the Discord API call
+            # 4. Compare with the currently displayed menu
+            if new_hash == self.menu_hashes[menu_key]:
+                return  # Nothing changed, skip the Discord API call
 
-        # ... (The rest of the update/self-healing logic remains exactly the same) ...
-        channel = self.bot.get_channel(
-            self.menus[self.menu_type]["channel_id"])
+            # ... (The rest of the update/self-healing logic remains exactly the same) ...
+            channel = self.bot.get_channel(
+                self.menus[menu_key]["channel_id"])
 
-        try:
-            message = await channel.fetch_message(self.menus[self.menu_type]["message_id"])
-            view = ModuleView(title="Modulübersicht",
-                              modules=live_modules_data, menu_key=self.menu_type, page=0)
-            await message.edit(view=view)
+            try:
+                message = await channel.fetch_message(self.menus[menu_key]["message_id"])
+                view = ModuleView(title="Modulübersicht",
+                                modules=live_modules_data, menu_key=menu_key, page=0)
+                await message.edit(view=view)
 
-            self.menu_hashes[self.menu_type] = new_hash
-            print("✅ Menu automatically updated with new database data.")
+                self.menu_hashes[self.menu_type] = new_hash
+                print("✅ Menu automatically updated with new database data.")
 
-        except discord.NotFound:
-            # Handle deleted message...
-            self.menus[self.menu_type]["message_id"] = None
-            pass
+            except discord.NotFound:
+                # Handle deleted message...
+                self.menus[self.menu_type]["message_id"] = None
+                pass
+    
+    def get_clean_parent_category(self, input: str):
+        return input.lower().strip()    
 
-    def get_clean_parent_category(self):
-        return self.get_title().lower().strip()
-
-    def get_title(self):
+    def get_title(self, input: str):
         parent_category = ""
 
-        if self.menu_type == "wiwi":
+        if input == "wiwi":
             return "Pflichtmodule Wirtschaftswissenschaften"
 
         return parent_category
