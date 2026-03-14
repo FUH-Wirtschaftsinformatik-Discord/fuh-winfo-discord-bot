@@ -21,18 +21,34 @@ def generate_data_hash(modules_list):
     return hashlib.md5(data_string.encode()).hexdigest()
 
 
-def save_modules_to_db(modules_list: list):
+def save_modules_to_db_by_key(key:str, modules_list: list):
+    """Saves the scraped module data to our local JSON database."""
+    modules = fetch_modules_from_db()
+    
+    modules[key] = modules_list
+    save_modules_to_db(modules)
+    
+def save_modules_to_db(complete_database: any):
     """Saves the scraped module data to our local JSON database."""
     with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(modules_list, f, indent=4, ensure_ascii=False)
-    print(f"💾 Saved {len(modules_list)} modules to the database.")
+        json.dump(complete_database, f, indent=4, ensure_ascii=False)
+    print(f"💾 Saved {len(complete_database)} modules to the database.")
+
+def fetch_modules_from_db_by_key(key: str):
+    """Loads the module data from the local JSON database."""
+    modules = fetch_modules_from_db()
+
+    if key in modules: 
+        return modules[key]    
+    
+    return [] # Return empty if the database doesn't exist yet
 
 def fetch_modules_from_db():
     """Loads the module data from the local JSON database."""
     if os.path.exists(MODULES_DB_FILE):
         with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return [] # Return empty if the database doesn't exist yet
+    return {} # Return empty if the database doesn't exist yet
 
 def save_menu_config(key:str,guild_id: int, channel_id: int, message_id: int):
     """Saves the guild, channel, and message IDs to a JSON file."""
@@ -219,13 +235,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # 2. Generate the hash to check if anything actually changed
         new_hash = generate_data_hash(live_modules_data)
 
-        # 3. Compare with the currently displayed menu
+        # 3. SAVE the data to our local database!
+        save_modules_to_db_by_key(self.config_key, live_modules_data)
+        
+        # 4. Compare with the currently displayed menu
         if new_hash == self.current_menu_hash:
             return # Nothing changed, skip the Discord API call
         
-        # 4. SAVE the data to our local database!
-        save_modules_to_db(live_modules_data)
-
         # ... (The rest of the update/self-healing logic remains exactly the same) ...
         channel = self.bot.get_channel(self.menu_channel_id)
         
@@ -323,7 +339,7 @@ async def setup(bot: commands.Bot) -> None:
     text_commands = QuickMenu(bot)
     
     # 1. Instantly load the last known good state from our local database!
-    saved_modules = fetch_modules_from_db()
+    saved_modules = fetch_modules_from_db_by_key(text_commands.config_key)
         
     # 2. Calculate the hash so the loop knows where we left off
     text_commands.current_menu_hash = generate_data_hash(saved_modules)   
