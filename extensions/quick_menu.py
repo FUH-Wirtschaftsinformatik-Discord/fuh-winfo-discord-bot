@@ -34,29 +34,36 @@ def fetch_modules_from_db():
             return json.load(f)
     return [] # Return empty if the database doesn't exist yet
 
-def save_menu_config(guild_id: int, channel_id: int, message_id: int):
+def save_menu_config(key:str,guild_id: int, channel_id: int, message_id: int):
     """Saves the guild, channel, and message IDs to a JSON file."""
-    data = {
+    
+    existing_config = load_menu_config()
+    
+    existing_config[key] = {
         "guild_id": guild_id,
         "channel_id": channel_id,
         "message_id": message_id
     }
     # Write the data to the file with a nice indent for readability
     with open(CONFIG_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+        json.dump(existing_config, f, indent=4)
 
 def load_menu_config():
     """Loads the config from the JSON file. Returns Nones if it doesn't exist."""
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             return json.load(f)
-            
-    # Fallback if the bot is starting fresh without a file
+    
     return {
-        "guild_id": None, 
-        "channel_id": None, 
-        "message_id": None
-    }    
+        
+    }
+        
+    # # Fallback if the bot is starting fresh without a file
+    # return {
+    #     "guild_id": None, 
+    #     "channel_id": None, 
+    #     "message_id": None
+    # }    
 
 @app_commands.guild_only()
 class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein Text"):
@@ -65,19 +72,22 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         self.bot = bot
         
         # --- NEW: State Tracking Variables ---
-        self.current_menu_hash = None
-        
-        # # In a real bot, you should save these IDs to a JSON file or Database 
-        # # so they survive a bot restart!
-        # self.menu_channel_id = None 
-        # self.menu_message_id = None  
-        
+        self.current_menu_hash = None       
         
         # --- Load the config file ---
+        self.config_key="wiwi" 
         config = load_menu_config()
-        self.menu_guild_id = config.get("guild_id")
-        self.menu_channel_id = config.get("channel_id")
-        self.menu_message_id = config.get("message_id")
+        
+        if self.config_key not in config:
+            config[self.config_key] = {
+                "guild_id": None,
+                "channel_id": None,
+                "message_id": None
+            }
+        
+        self.menu_guild_id = config[self.config_key].get("guild_id")
+        self.menu_channel_id = config[self.config_key].get("channel_id")
+        self.menu_message_id = config[self.config_key].get("message_id")
         
         if self.menu_message_id:
             print(f"📁 Loaded existing config! Guild: {self.menu_guild_id}, Message: {self.menu_message_id}")           
@@ -141,7 +151,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         self.menu_message_id = message.id 
 
         try:
-            save_menu_config(interaction.guild.id, interaction.channel.id, message.id)
+            save_menu_config(self.config_key,interaction.guild.id, interaction.channel.id, message.id)
             # Send a private success confirmation to the admin who ran the command
             await interaction.followup.send("✅ Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
         except Exception as e:
