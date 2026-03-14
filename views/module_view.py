@@ -55,17 +55,17 @@ class ModuleSelect(discord.ui.Select):
             module = next(m for m in self.modules if str(
                 m["id"]) == self.values[0])
         except StopIteration:
-            await interaction.followup.send("❌ Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
+            await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
         channel = interaction.guild.get_channel(module["channel_id"])
 
         if not channel:
-            await interaction.followup.send("❌ Kanal nicht gefunden.", ephemeral=True)
+            await interaction.followup.send("Kanal nicht gefunden.", ephemeral=True)
             return
 
         await interaction.followup.send(
-            f"🔗 **Modul {module['id']}**\n➡️ {channel.mention}",
+            f"🔗 **Modul: {module['description'][:40]} ({module['id']})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
             ephemeral=True
         )
 
@@ -81,7 +81,7 @@ class NextButton(discord.ui.Button):
         view: ModuleView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
-            await interaction.response.send_message("❌ Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
+            await interaction.response.send_message("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
             return
 
         await interaction.response.edit_message(
@@ -102,7 +102,7 @@ class PrevButton(discord.ui.Button):
         view: ModuleView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
-            await interaction.response.send_message("❌ Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
+            await interaction.response.send_message("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
             return
 
         await interaction.response.edit_message(

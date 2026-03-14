@@ -79,7 +79,17 @@ def load_menu_config():
     return {
 
     }
+    
+def get_parent_category_name(menu_type: str):
+    parent_category = ""
+    
+    if menu_type == "wiwi":
+        return "Pflichtmodule Wirtschaftswissenschaften"
+    
+    return parent_category    
 
+def convert_to_clean_string(input: str):
+    return input.lower().strip()    
 
 @app_commands.guild_only()
 class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein Text"):
@@ -118,19 +128,24 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         ])    
     async def cmd_pflichtmodule_wiwi(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
+        
+        parent_category = get_parent_category_name(menu_type.value)
+        clean_parent_category = convert_to_clean_string(parent_category)  
+        
+        if not parent_category or len(parent_category) == 0:
+            await interaction.followup.send("Unbekannter Menütyp. Bitte wähle einen gültigen Typ aus.", ephemeral=True)
+            return      
 
         # Fetch data (wrap in try/except in case your parsing logic hits an unexpected server error)
-        try:
-            tio = self.get_title(menu_type.value)
-            clean_parent_category = self.get_clean_parent_category(tio)
+        try:            
             menu_items = self.get_module_categories(
                 interaction.guild.categories, clean_parent_category)
         except Exception as e:
-            await interaction.followup.send(f"❌ Fehler beim Laden der Kategorien: {e}", ephemeral=True)
+            await interaction.followup.send(f"Fehler beim Laden der Kategorien: {e}", ephemeral=True)
             return
 
         if not menu_items:
-            await interaction.followup.send("❌ Keine Module vorhanden.", ephemeral=True)
+            await interaction.followup.send("Keine Module vorhanden.", ephemeral=True)
             return
 
         # ==========================================
@@ -151,14 +166,14 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 2: SEND AS A STANDARD MESSAGE
         # ==========================================
-        msg = f"📚 **{self.get_title(menu_type.value)}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
-        view = ModuleView(self.get_title(menu_type.value), menu_items, menu_type.value, page=0)
-
         try:
             # Send a brand new message to the channel, completely separate from the slash command
+            title = get_parent_category_name(menu_type.value)
+            view = ModuleView(title, menu_items, menu_type.value, page=0)
+            msg = f"📚 **{title}**\nKlicke auf das Menü um zu einem Modulchannel zu gelangen!"
             message = await interaction.channel.send(content=msg, view=view)
         except discord.Forbidden:
-            await interaction.followup.send("❌ Mir fehlen die Rechte, um in diesen Kanal zu senden.", ephemeral=True)
+            await interaction.followup.send("Mir fehlen die Rechte, um in diesen Kanal zu senden.", ephemeral=True)
             return
 
         # ==========================================
@@ -173,7 +188,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             save_menu_config(menu_type.value, interaction.guild.id,
                              interaction.channel.id, message.id)
             # Send a private success confirmation to the admin who ran the command
-            await interaction.followup.send("✅ Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
+            await interaction.followup.send("Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
         except Exception as e:
             # If the hard drive is full or file is locked, warn the admin but don't crash
             await interaction.followup.send(f"⚠️ Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
@@ -226,8 +241,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             if not guild:
                 return
 
-            fufu = self.get_title(menu_key)
-            clean_parent_category = self.get_clean_parent_category(fufu)
+            menu_title = get_parent_category_name(menu_key)
+            clean_parent_category = convert_to_clean_string(menu_title)
 
             # 1. Scrape the live data from Discord categories
             live_modules_data = self.get_module_categories(
@@ -254,24 +269,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 await message.edit(view=view)
 
                 self.menu_hashes[self.menu_type] = new_hash
-                print("✅ Menu automatically updated with new database data.")
+                print("Menu automatically updated with new database data.")
 
             except discord.NotFound:
                 # Handle deleted message...
                 self.menus[self.menu_type]["message_id"] = None
                 pass
     
-    def get_clean_parent_category(self, input: str):
-        return input.lower().strip()    
-
-    def get_title(self, input: str):
-        parent_category = ""
-
-        if input == "wiwi":
-            return "Pflichtmodule Wirtschaftswissenschaften"
-
-        return parent_category
-
     @menu_updater_loop.before_loop
     async def before_updater(self):
         # Wait until the bot is fully logged in before starting the loop
@@ -366,7 +370,5 @@ async def setup(bot: commands.Bot) -> None:
             
             bot.add_view(ModuleView(title=title, modules=modules_list, menu_key=menu_key, page=0))    
 
-    # 4. Start the background loop to watch for future changes
-    print("✅ Boot sequence complete. Loaded modules from DB.")
 
     await bot.add_cog(text_commands)
