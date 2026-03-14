@@ -12,12 +12,14 @@ import hashlib
 import json
 from discord.ext import tasks
 
+MODULES_DB_FILE = "data/modules_db.json"
+CONFIG_FILE = "data/menu_config.json"
+
 def generate_data_hash(modules_list):
     """Converts the modules list into a unique hash string to detect changes."""
     data_string = json.dumps(modules_list, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
 
-MODULES_DB_FILE = "modules_db.json"
 
 def save_modules_to_db(modules_list: list):
     """Saves the scraped module data to our local JSON database."""
@@ -31,9 +33,6 @@ def fetch_modules_from_db():
         with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return [] # Return empty if the database doesn't exist yet
-
-
-CONFIG_FILE = "menu_config.json"
 
 def save_menu_config(guild_id: int, channel_id: int, message_id: int):
     """Saves the guild, channel, and message IDs to a JSON file."""
@@ -88,72 +87,70 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     @app_commands.command(name="pflichtmodule-wiwi", description="Zeigt ein Menü der Pflichtmodule für Wiwi an.")
     @app_commands.default_permissions(administrator=True)
     async def cmd_pflichtmodule_wiwi(self, interaction: Interaction):
-        await interaction.response.defer()
-
+        # 1. Defer EPHEMERALLY. The "bot is thinking" message is only visible to the admin.
+        await interaction.response.defer()        
+        # await interaction.response.defer(ephemeral=True)        
+        
         title = "Pflichtmodule Wirtschaftswissenschaften"
         start_string = title.lower().strip()
 
-        menu_items = self.new_method(interaction, start_string)
+        # Fetch data (wrap in try/except in case your parsing logic hits an unexpected server error)
+        try:
+            menu_items = self.get_module_categories(interaction.guild.categories, start_string)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Fehler beim Laden der Kategorien: {e}", ephemeral=True)
+            return
 
         if not menu_items:
-            await interaction.edit_original_response(content="❌ Keine Module vorhanden.")
+            await interaction.followup.send("❌ Keine Module vorhanden.", ephemeral=True)
             return
-        
-        # 2. Generate the hash for rate-limit protection
-        new_hash = generate_data_hash(menu_items)
-        self.current_menu_hash = new_hash        
 
+        # ==========================================
+        # UPGRADE 1: CLEANUP GHOST MENUS
+        # ==========================================
+        if getattr(self, "menu_message_id", None) and getattr(self, "menu_channel_id", None):
+            try:
+                old_channel = interaction.guild.get_channel(self.menu_channel_id)
+                if old_channel:
+                    old_message = await old_channel.fetch_message(self.menu_message_id)
+                    await old_message.delete()
+            except discord.NotFound:
+                pass # Old message was already deleted by a user, which is fine!
+            except discord.HTTPException:
+                pass # Ignore other API errors so it doesn't stop the new menu from spawning
+
+        # ==========================================
+        # UPGRADE 2: SEND AS A STANDARD MESSAGE
+        # ==========================================
         msg = f"📚 **{title}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
+        view = ModuleView(title, menu_items, page=0)
 
-        await interaction.edit_original_response(content=msg, view=ModuleView(title, menu_items))
-        
-        message = await interaction.original_response()      
-        
-        self.menu_guild_id = interaction.guild.id # We need the guild ID for the background loop!
+        try:
+            # Send a brand new message to the channel, completely separate from the slash command
+            message = await interaction.channel.send(content=msg, view=view)
+        except discord.Forbidden:
+            await interaction.followup.send("❌ Mir fehlen die Rechte, um in diesen Kanal zu senden.", ephemeral=True)
+            return
+
+        # ==========================================
+        # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
+        # ==========================================
+        self.current_menu_hash = generate_data_hash(menu_items)
+        self.menu_guild_id = interaction.guild.id 
         self.menu_channel_id = interaction.channel.id
-        self.menu_message_id = message.id     
-        
-        save_menu_config(interaction.guild.id, interaction.channel.id, message.id)     
+        self.menu_message_id = message.id 
 
-    def new_method(self, interaction : Interaction, start_string: str):
+        try:
+            save_menu_config(interaction.guild.id, interaction.channel.id, message.id)
+            # Send a private success confirmation to the admin who ran the command
+            await interaction.followup.send("✅ Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
+        except Exception as e:
+            # If the hard drive is full or file is locked, warn the admin but don't crash
+            await interaction.followup.send(f"⚠️ Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)    
+
+    def get_module_categories(self, all_categories : List[CategoryChannel], start_string: str):
         module_categories = self.get_module_categories_of_parent_category(
-            interaction.guild.categories, start_string)
-
-        menu_items = []
-
-        for category in module_categories:
-            # Extract the module number from the category name, if it exists
-            module_number = ""
-            has_module_number = re.search(r'\d+', category.name)
-            if has_module_number and has_module_number.group():
-                module_number = has_module_number.group(0).strip()
-
-            # Remove the module number and any non-ASCII characters to get a cleaner module name
-            module_name = "".join(char for char in category.name.replace(
-                module_number, "") if char.isascii()).strip()
-
-            # Skip categories that don't have any channels, as they likely aren't actual modules
-            if len(category.channels) == 0:
-                continue
-
-            # Try to find a channel named "diskussion-und-infos" in this category, or fallback to the first public channel if it doesn't exist
-            channel = self.get_channel_or_first_public_of_category(
-                category, "diskussion-und-infos")
-            if channel is None:
-                continue
-
-            menu_items.append({
-                "id": module_number,
-                "description": module_name,
-                "channel_id": channel.id
-            })
-            
-        return menu_items
-
-
-    def aaaaanew_method(self, qqq : List[CategoryChannel], start_string: str):
-        module_categories = self.get_module_categories_of_parent_category(
-            qqq, start_string)
+            all_categories, start_string)
 
         menu_items = []
 
@@ -200,17 +197,17 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         start_string = title.lower().strip()        
 
         # 1. Scrape the live data from Discord categories
-        live_modules_data = self.aaaaanew_method(guild.categories, start_string)
+        live_modules_data = self.get_module_categories(guild.categories, start_string)
         
-        # 2. SAVE the data to our local database!
-        save_modules_to_db(live_modules_data)
-
-        # 3. Generate the hash to check if anything actually changed
+        # 2. Generate the hash to check if anything actually changed
         new_hash = generate_data_hash(live_modules_data)
 
-        # 4. Compare with the currently displayed menu
+        # 3. Compare with the currently displayed menu
         if new_hash == self.current_menu_hash:
             return # Nothing changed, skip the Discord API call
+        
+        # 4. SAVE the data to our local database!
+        save_modules_to_db(live_modules_data)
 
         # ... (The rest of the update/self-healing logic remains exactly the same) ...
         channel = self.bot.get_channel(self.menu_channel_id)
@@ -307,9 +304,6 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
 async def setup(bot: commands.Bot) -> None:
     text_commands = QuickMenu(bot)
-    # real_modules = fetch_modules_from_db()
-    # text_commands.current_menu_hash = generate_data_hash(real_modules)    
-    # bot.add_view(ModuleView(title="Dummy", modules=real_modules, page=0))
     
     # 1. Instantly load the last known good state from our local database!
     saved_modules = fetch_modules_from_db()
@@ -322,7 +316,7 @@ async def setup(bot: commands.Bot) -> None:
         
     # 4. Start the background loop to watch for future changes
     print("✅ Boot sequence complete. Loaded modules from DB.")     
-    # text_commands.menu_updater_loop.start()
+    
     await bot.add_cog(text_commands)
     
 
