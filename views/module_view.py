@@ -1,5 +1,6 @@
 import discord
 
+
 class ModuleView(discord.ui.View):
     def __init__(self, title, modules, page=0):
         super().__init__(timeout=None)
@@ -15,6 +16,7 @@ class ModuleView(discord.ui.View):
 
         if (page + 1) * 25 < len(modules):
             self.add_item(NextButton())
+
 
 class ModuleSelect(discord.ui.Select):
     def __init__(self, modules, page, title):
@@ -33,16 +35,26 @@ class ModuleSelect(discord.ui.Select):
             )
             for m in page_items
         ]
+        
+        # Fallback option so discord.py doesn't crash on an empty list during setup_hook
+        if not options:
+            options = [discord.SelectOption(label="Lädt...", value="loading")]        
 
         super().__init__(
             placeholder=f"📚 {title} (Seite {page + 1})",
-            options=options
+            options=options,
+            custom_id="persistent_view:module_select"
         )
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        module = next(m for m in self.modules if m["id"] == self.values[0])
+        try:
+            module = next(m for m in self.modules if str(m["id"]) == self.values[0])
+        except StopIteration:
+            await interaction.followup.send("❌ Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
+            return        
+        
         channel = interaction.guild.get_channel(module["channel_id"])
 
         if not channel:
@@ -54,22 +66,40 @@ class ModuleSelect(discord.ui.Select):
             ephemeral=True
         )
 
+
 class NextButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="➡️", style=discord.ButtonStyle.primary)
+        super().__init__(label="➡️",
+                         style=discord.ButtonStyle.primary,
+                         custom_id="persistent_view:module_next")
 
     async def callback(self, interaction: discord.Interaction):
-        view = interaction.message.view
+        view: ModuleView = self.view 
+        
+        if not hasattr(view, 'modules') or not view.modules:
+            await interaction.response.send_message("❌ Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
+            return
+
         await interaction.response.edit_message(
             view=ModuleView(view.title, view.modules, view.page + 1)
         )
 
+
 class PrevButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="⬅️", style=discord.ButtonStyle.primary)
+        super().__init__(
+                    label="➡️", 
+                    style=discord.ButtonStyle.primary,
+                    custom_id="persistent_view:module_next" # RULE 2
+                )                         
 
     async def callback(self, interaction: discord.Interaction):
-        view = interaction.message.view
+        view: ModuleView = self.view 
+            
+        if not hasattr(view, 'modules') or not view.modules:
+            await interaction.response.send_message("❌ Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
+            return
+
         await interaction.response.edit_message(
-            view=ModuleView(view.title, view.modules, view.page - 1)
+            view=ModuleView(view.title, view.modules, view.page + 1)
         )
