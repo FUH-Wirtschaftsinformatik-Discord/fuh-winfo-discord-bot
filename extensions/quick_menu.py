@@ -48,6 +48,20 @@ def save_menu_config(key:str,guild_id: int, channel_id: int, message_id: int):
     with open(CONFIG_FILE, "w") as f:
         json.dump(existing_config, f, indent=4)
 
+def load_menu_config_by_key(key:str):
+    config = load_menu_config()
+    
+    if key in config:
+        return config[key]
+    
+    config[key] = {
+         "guild_id": None, 
+         "channel_id": None, 
+         "message_id": None
+     }     
+    
+    return config[key]
+
 def load_menu_config():
     """Loads the config from the JSON file. Returns Nones if it doesn't exist."""
     if os.path.exists(CONFIG_FILE):
@@ -76,18 +90,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         
         # --- Load the config file ---
         self.config_key="wiwi" 
-        config = load_menu_config()
-        
-        if self.config_key not in config:
-            config[self.config_key] = {
-                "guild_id": None,
-                "channel_id": None,
-                "message_id": None
-            }
-        
-        self.menu_guild_id = config[self.config_key].get("guild_id")
-        self.menu_channel_id = config[self.config_key].get("channel_id")
-        self.menu_message_id = config[self.config_key].get("message_id")
+        config = load_menu_config_by_key(self.config_key)
+               
+        self.menu_guild_id = config.get("guild_id")
+        self.menu_channel_id = config.get("channel_id")
+        self.menu_message_id = config.get("message_id")
         
         if self.menu_message_id:
             print(f"📁 Loaded existing config! Guild: {self.menu_guild_id}, Message: {self.menu_message_id}")           
