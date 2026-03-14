@@ -103,20 +103,23 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         self.bot = bot
         self.config_key = "wiwi"
 
-        # --- NEW: State Tracking Variables ---
+        # --- Hashing ---
         self.menu_hashes = {}
         self.menu_hashes[self.config_key] = None
 
         # --- Load the config file ---
-        config = load_menu_config_by_key(self.config_key)
+        menu_config = load_menu_config_by_key(self.config_key)
 
-        self.menu_guild_id = config.get("guild_id")
-        self.menu_channel_id = config.get("channel_id")
-        self.menu_message_id = config.get("message_id")
+        self.menus = {}
+        self.menus[self.config_key] = {
+            "guild_id": menu_config.get("guild_id"),
+            "channel_id": menu_config.get("channel_id"),
+            "message_id": menu_config.get("message_id"),
+        }
 
-        if self.menu_message_id:
+        if self.menus[self.config_key]["message_id"]:
             print(
-                f"📁 Loaded existing config! Guild: {self.menu_guild_id}, Message: {self.menu_message_id}")
+                f"📁 Loaded existing config! Guild: {self.menus[self.config_key]["guild_id"]}, Message: {self.menus[self.config_key]["message_id"]}")
 
         self.menu_updater_loop.start()
 
@@ -148,9 +151,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         if getattr(self, "menu_message_id", None) and getattr(self, "menu_channel_id", None):
             try:
                 old_channel = interaction.guild.get_channel(
-                    self.menu_channel_id)
+                    self.menus[self.config_key]["channel_id"])
                 if old_channel:
-                    old_message = await old_channel.fetch_message(self.menu_message_id)
+                    old_message = await old_channel.fetch_message(self.menus[self.config_key]["message_id"])
                     await old_message.delete()
             except discord.NotFound:
                 pass  # Old message was already deleted by a user, which is fine!
@@ -174,9 +177,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
         # ==========================================
         self.menu_hashes[self.config_key] = generate_data_hash(menu_items)
-        self.menu_guild_id = interaction.guild.id
-        self.menu_channel_id = interaction.channel.id
-        self.menu_message_id = message.id
+        self.menus[self.config_key]["guild_id"] = interaction.guild.id
+        self.menus[self.config_key]["channel_id"] = interaction.channel.id
+        self.menus[self.config_key]["message_id"] = message.id
 
         try:
             save_menu_config(self.config_key, interaction.guild.id,
@@ -225,10 +228,10 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     # --- NEW: The Background Updater Task ---
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
-        if not self.menu_channel_id or not self.menu_guild_id:
+        if not self.menus[self.config_key]["channel_id"] or not self.menus[self.config_key]["guild_id"]:
             return
 
-        guild = self.bot.get_guild(self.menu_guild_id)
+        guild = self.bot.get_guild(self.menus[self.config_key]["guild_id"])
         if not guild:
             return
 
@@ -250,10 +253,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             return  # Nothing changed, skip the Discord API call
 
         # ... (The rest of the update/self-healing logic remains exactly the same) ...
-        channel = self.bot.get_channel(self.menu_channel_id)
+        channel = self.bot.get_channel(
+            self.menus[self.config_key]["channel_id"])
 
         try:
-            message = await channel.fetch_message(self.menu_message_id)
+            message = await channel.fetch_message(self.menus[self.config_key]["message_id"])
             view = ModuleView(title="Modulübersicht",
                               modules=live_modules_data, page=0)
             await message.edit(view=view)
@@ -262,7 +266,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
         except discord.NotFound:
             # Handle deleted message...
-            self.menu_message_id = None
+            self.menus[self.config_key]["message_id"] = None
             pass
 
     @menu_updater_loop.before_loop
@@ -349,7 +353,8 @@ async def setup(bot: commands.Bot) -> None:
     saved_modules = fetch_modules_from_db_by_key(text_commands.config_key)
 
     # 2. Calculate the hash so the loop knows where we left off
-    text_commands.menu_hashes[text_commands.config_key] = generate_data_hash(saved_modules)
+    text_commands.menu_hashes[text_commands.config_key] = generate_data_hash(
+        saved_modules)
 
     # 3. Register the view so buttons work instantly after a reboot
     bot.add_view(ModuleView(title="Modulübersicht",
