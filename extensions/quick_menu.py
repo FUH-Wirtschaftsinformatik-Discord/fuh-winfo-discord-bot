@@ -2,6 +2,7 @@ import os
 import re
 from typing import List
 
+from attr import asdict, dataclass
 from discord import CategoryChannel, app_commands, Interaction
 import discord
 from discord.ext import commands
@@ -15,6 +16,12 @@ from discord.ext import tasks
 MODULES_DB_FILE = "data/modules_db.json"
 CONFIG_FILE = "data/menu_config.json"
 
+        
+@dataclass
+class MenuConfig:
+    guild_id: int | None
+    channel_id: int | None
+    message_id: int | None       
 
 def generate_data_hash(modules_list):
     """Converts the modules list into a unique hash string to detect changes."""
@@ -22,11 +29,11 @@ def generate_data_hash(modules_list):
     return hashlib.md5(data_string.encode()).hexdigest()
 
 
-def save_modules_to_db_by_key(key: str, modules_list: list):
+def save_modules_to_db_by_key(menu_type: str, modules_list: list):
     """Saves the scraped module data to our local JSON database."""
     modules = fetch_modules_from_db()
 
-    modules[key] = modules_list
+    modules[menu_type] = modules_list
     save_modules_to_db(modules)
 
 
@@ -44,7 +51,7 @@ def fetch_modules_from_db_by_key(key: str):
     if key in modules:
         return modules[key]
 
-    return []  # Return empty if the database doesn't exist yet
+    return []  
 
 
 def fetch_modules_from_db():
@@ -52,34 +59,33 @@ def fetch_modules_from_db():
     if os.path.exists(MODULES_DB_FILE):
         with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}  # Return empty if the database doesn't exist yet
+    return {}  
 
 
-def save_menu_config(key: str, guild_id: int, channel_id: int, message_id: int):
+def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id: int):
     """Saves the guild, channel, and message IDs to a JSON file."""
 
     existing_config = load_menu_config()
-
-    existing_config[key] = {
-        "guild_id": guild_id,
-        "channel_id": channel_id,
-        "message_id": message_id
+    existing_config[menu_type] = MenuConfig(guild_id, channel_id, message_id)
+    
+    # asdict() automatically converts your dataclass into a JSON-safe dictionary
+    serializable_data = {
+        menu_key: asdict(config_object) for menu_key, config_object in existing_config.items()
     }
-    # Write the data to the file with a nice indent for readability
+    
     with open(CONFIG_FILE, "w") as f:
-        json.dump(existing_config, f, indent=4)
-
+        json.dump(serializable_data, f, indent=4)    
+    
 
 def load_menu_config():
-    """Loads the config from the JSON file. Returns Nones if it doesn't exist."""
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-
-    return {
-
-    }
-
+            raw_data = json.load(f)
+            
+            return {
+                menu_key: MenuConfig(**data)  for menu_key, data in raw_data.items()
+            }
+    return {}
 
 def get_parent_category_name(menu_type: str):
     parent_category = ""
@@ -107,27 +113,12 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.menu_type = "pflicht-wiwi"
 
         # --- Hashing ---
         self.menu_hashes = {}
-        self.menu_hashes[self.menu_type] = None
 
         # --- Load the config file ---
-        menu_config = load_menu_config()
-        selected_menu = menu_config.get(self.menu_type, {})
-
-        self.menus = {
-            self.menu_type: {
-                "guild_id": selected_menu.get("guild_id"),
-                "channel_id": selected_menu.get("channel_id"),
-                "message_id": selected_menu.get("message_id"),
-            }
-        }
-
-        if self.menus[self.menu_type]["message_id"]:
-            print(
-                f"📁 Loaded existing config! Guild: {self.menus[self.menu_type]["guild_id"]}, Message: {self.menus[self.menu_type]["message_id"]}")
+        self.menus = load_menu_config()
 
         self.menu_updater_loop.start()
 
@@ -193,10 +184,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
         # ==========================================
         self.menu_hashes[menu_type.value] = generate_data_hash(menu_items)
-        self.menus[menu_type.value]["guild_id"] = interaction.guild.id
-        self.menus[menu_type.value]["channel_id"] = interaction.channel.id
-        self.menus[menu_type.value]["message_id"] = message.id
-
+        
+        self.menus[menu_type.value] = {
+            "guild_id": interaction.guild.id,
+            "channel_id": interaction.channel.id,
+            "message_id": message.id
+            }
+        
         try:
             save_menu_config(menu_type.value, interaction.guild.id,
                              interaction.channel.id, message.id)
@@ -204,7 +198,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             await interaction.followup.send("Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
         except Exception as e:
             # If the hard drive is full or file is locked, warn the admin but don't crash
-            await interaction.followup.send(f"⚠️ Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
+            await interaction.followup.send(f"Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
 
     def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str):
         module_categories = self.get_module_categories_of_parent_category(
@@ -244,7 +238,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
 
-        for menu_key, config in self.menus.items():
+        for menu_type, config in self.menus.items():
 
             if config.get("channel_id") is None:
                 return
@@ -254,7 +248,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             if not guild:
                 return
 
-            menu_title = get_parent_category_name(menu_key)
+            menu_title = get_parent_category_name(menu_type)
             clean_parent_category = convert_to_clean_string(menu_title)
 
             # 1. Scrape the live data from Discord categories
@@ -265,28 +259,28 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             new_hash = generate_data_hash(live_modules_data)
 
             # 3. SAVE the data to our local database!
-            save_modules_to_db_by_key(menu_key, live_modules_data)
+            save_modules_to_db_by_key(menu_type, live_modules_data)
 
             # 4. Compare with the currently displayed menu
-            if new_hash == self.menu_hashes[menu_key]:
+            if new_hash == self.menu_hashes[menu_type]:
                 return  # Nothing changed, skip the Discord API call
 
             # ... (The rest of the update/self-healing logic remains exactly the same) ...
             channel = self.bot.get_channel(
-                self.menus[menu_key]["channel_id"])
+                self.menus[menu_type]["channel_id"])
 
             try:
-                message = await channel.fetch_message(self.menus[menu_key]["message_id"])
+                message = await channel.fetch_message(self.menus[menu_type]["message_id"])
                 view = QuickMenuView(title="Modulübersicht",
-                                     modules=live_modules_data, menu_key=menu_key, page=0)
+                                     modules=live_modules_data, menu_key=menu_type, page=0)
                 await message.edit(view=view)
 
-                self.menu_hashes[self.menu_type] = new_hash
+                self.menu_hashes[menu_type] = new_hash
                 print("Menu automatically updated with new database data.")
 
             except discord.NotFound:
                 # Handle deleted message...
-                self.menus[self.menu_type]["message_id"] = None
+                self.menus[menu_type]["message_id"] = None
                 pass
 
     @menu_updater_loop.before_loop
