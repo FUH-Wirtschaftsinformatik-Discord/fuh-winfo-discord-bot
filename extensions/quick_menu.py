@@ -70,21 +70,6 @@ def save_menu_config(key: str, guild_id: int, channel_id: int, message_id: int):
         json.dump(existing_config, f, indent=4)
 
 
-def load_menu_config_by_key(key: str):
-    config = load_menu_config()
-
-    if key in config:
-        return config[key]
-
-    config[key] = {
-        "guild_id": None,
-        "channel_id": None,
-        "message_id": None
-    }
-
-    return config[key]
-
-
 def load_menu_config():
     """Loads the config from the JSON file. Returns Nones if it doesn't exist."""
     if os.path.exists(CONFIG_FILE):
@@ -101,25 +86,27 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.config_key = "wiwi"
+        self.menu_type = "wiwi"
 
         # --- Hashing ---
         self.menu_hashes = {}
-        self.menu_hashes[self.config_key] = None
+        self.menu_hashes[self.menu_type] = None
 
         # --- Load the config file ---
-        menu_config = load_menu_config_by_key(self.config_key)
+        menu_config = load_menu_config()
+        selected_menu = menu_config.get(self.menu_type, {})
 
-        self.menus = {}
-        self.menus[self.config_key] = {
-            "guild_id": menu_config.get("guild_id"),
-            "channel_id": menu_config.get("channel_id"),
-            "message_id": menu_config.get("message_id"),
+        self.menus = {
+            self.menu_type: {
+                "guild_id": selected_menu.get("guild_id"),
+                "channel_id": selected_menu.get("channel_id"),
+                "message_id": selected_menu.get("message_id"),
+            }
         }
 
-        if self.menus[self.config_key]["message_id"]:
+        if self.menus[self.menu_type]["message_id"]:
             print(
-                f"📁 Loaded existing config! Guild: {self.menus[self.config_key]["guild_id"]}, Message: {self.menus[self.config_key]["message_id"]}")
+                f"📁 Loaded existing config! Guild: {self.menus[self.menu_type]["guild_id"]}, Message: {self.menus[self.menu_type]["message_id"]}")
 
         self.menu_updater_loop.start()
 
@@ -128,15 +115,12 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     async def cmd_pflichtmodule_wiwi(self, interaction: Interaction):
         # 1. Defer EPHEMERALLY. The "bot is thinking" message is only visible to the admin.
         await interaction.response.defer()
-        # await interaction.response.defer(ephemeral=True)
-
-        title = "Pflichtmodule Wirtschaftswissenschaften"
-        start_string = title.lower().strip()
 
         # Fetch data (wrap in try/except in case your parsing logic hits an unexpected server error)
         try:
+            clean_parent_category = self.get_clean_parent_category()
             menu_items = self.get_module_categories(
-                interaction.guild.categories, start_string)
+                interaction.guild.categories, clean_parent_category)
         except Exception as e:
             await interaction.followup.send(f"❌ Fehler beim Laden der Kategorien: {e}", ephemeral=True)
             return
@@ -151,9 +135,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         if getattr(self, "menu_message_id", None) and getattr(self, "menu_channel_id", None):
             try:
                 old_channel = interaction.guild.get_channel(
-                    self.menus[self.config_key]["channel_id"])
+                    self.menus[self.menu_type]["channel_id"])
                 if old_channel:
-                    old_message = await old_channel.fetch_message(self.menus[self.config_key]["message_id"])
+                    old_message = await old_channel.fetch_message(self.menus[self.menu_type]["message_id"])
                     await old_message.delete()
             except discord.NotFound:
                 pass  # Old message was already deleted by a user, which is fine!
@@ -163,8 +147,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 2: SEND AS A STANDARD MESSAGE
         # ==========================================
-        msg = f"📚 **{title}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
-        view = ModuleView(title, menu_items, page=0)
+        msg = f"📚 **{self.get_title()}**\nSeite 1 von {(len(menu_items)-1)//25 + 1}"
+        view = ModuleView(self.get_title(), menu_items, self.menu_type, page=0)
 
         try:
             # Send a brand new message to the channel, completely separate from the slash command
@@ -176,13 +160,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
         # ==========================================
-        self.menu_hashes[self.config_key] = generate_data_hash(menu_items)
-        self.menus[self.config_key]["guild_id"] = interaction.guild.id
-        self.menus[self.config_key]["channel_id"] = interaction.channel.id
-        self.menus[self.config_key]["message_id"] = message.id
+        self.menu_hashes[self.menu_type] = generate_data_hash(menu_items)
+        self.menus[self.menu_type]["guild_id"] = interaction.guild.id
+        self.menus[self.menu_type]["channel_id"] = interaction.channel.id
+        self.menus[self.menu_type]["message_id"] = message.id
 
         try:
-            save_menu_config(self.config_key, interaction.guild.id,
+            save_menu_config(self.menu_type, interaction.guild.id,
                              interaction.channel.id, message.id)
             # Send a private success confirmation to the admin who ran the command
             await interaction.followup.send("✅ Menü erfolgreich erstellt und alte Version bereinigt!", ephemeral=True)
@@ -190,9 +174,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             # If the hard drive is full or file is locked, warn the admin but don't crash
             await interaction.followup.send(f"⚠️ Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
 
-    def get_module_categories(self, all_categories: List[CategoryChannel], start_string: str):
+    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str):
         module_categories = self.get_module_categories_of_parent_category(
-            all_categories, start_string)
+            all_categories, parent_category)
 
         menu_items = []
 
@@ -225,49 +209,61 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
         return menu_items
 
-    # --- NEW: The Background Updater Task ---
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
-        if not self.menus[self.config_key]["channel_id"] or not self.menus[self.config_key]["guild_id"]:
+
+        current_menu = self.menus.get(self.menu_type)
+        if current_menu is None or current_menu.get("channel_id") is None:
             return
 
-        guild = self.bot.get_guild(self.menus[self.config_key]["guild_id"])
+        guild = self.bot.get_guild(current_menu["guild_id"])
         if not guild:
             return
 
-        title = "Pflichtmodule Wirtschaftswissenschaften"
-        start_string = title.lower().strip()
+        clean_parent_category = self.get_clean_parent_category()
 
         # 1. Scrape the live data from Discord categories
         live_modules_data = self.get_module_categories(
-            guild.categories, start_string)
+            guild.categories, clean_parent_category)
 
         # 2. Generate the hash to check if anything actually changed
         new_hash = generate_data_hash(live_modules_data)
 
         # 3. SAVE the data to our local database!
-        save_modules_to_db_by_key(self.config_key, live_modules_data)
+        save_modules_to_db_by_key(self.menu_type, live_modules_data)
 
         # 4. Compare with the currently displayed menu
-        if new_hash == self.menu_hashes[self.config_key]:
+        if new_hash == self.menu_hashes[self.menu_type]:
             return  # Nothing changed, skip the Discord API call
 
         # ... (The rest of the update/self-healing logic remains exactly the same) ...
         channel = self.bot.get_channel(
-            self.menus[self.config_key]["channel_id"])
+            self.menus[self.menu_type]["channel_id"])
 
         try:
-            message = await channel.fetch_message(self.menus[self.config_key]["message_id"])
+            message = await channel.fetch_message(self.menus[self.menu_type]["message_id"])
             view = ModuleView(title="Modulübersicht",
-                              modules=live_modules_data, page=0)
+                              modules=live_modules_data, menu_key=self.menu_type, page=0)
             await message.edit(view=view)
-            self.menu_hashes[self.config_key] = new_hash
+
+            self.menu_hashes[self.menu_type] = new_hash
             print("✅ Menu automatically updated with new database data.")
 
         except discord.NotFound:
             # Handle deleted message...
-            self.menus[self.config_key]["message_id"] = None
+            self.menus[self.menu_type]["message_id"] = None
             pass
+
+    def get_clean_parent_category(self):
+        return self.get_title().lower().strip()
+
+    def get_title(self):
+        parent_category = ""
+
+        if self.menu_type == "wiwi":
+            return "Pflichtmodule Wirtschaftswissenschaften"
+
+        return parent_category
 
     @menu_updater_loop.before_loop
     async def before_updater(self):
@@ -303,12 +299,12 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     def get_module_categories_of_parent_category(self,
                                                  categories: list[discord.CategoryChannel],
-                                                 parent_category_name: str) -> list[discord.CategoryChannel]:
+                                                 parent_category: str) -> list[discord.CategoryChannel]:
 
         if not categories:
             return []
 
-        if not parent_category_name:
+        if not parent_category:
             return categories
 
         start_index = -1
@@ -325,7 +321,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                     end_index = i
                     break
 
-            if start_index == -1 and parent_category_name in category_name:
+            if start_index == -1 and parent_category in category_name:
                 start_index = i
                 continue
 
@@ -350,15 +346,19 @@ async def setup(bot: commands.Bot) -> None:
     text_commands = QuickMenu(bot)
 
     # 1. Instantly load the last known good state from our local database!
-    saved_modules = fetch_modules_from_db_by_key(text_commands.config_key)
+    # saved_modules = fetch_modules_from_db_by_key("wiwi")
+    saved_modules = fetch_modules_from_db()
 
-    # 2. Calculate the hash so the loop knows where we left off
-    text_commands.menu_hashes[text_commands.config_key] = generate_data_hash(
-        saved_modules)
-
-    # 3. Register the view so buttons work instantly after a reboot
-    bot.add_view(ModuleView(title="Modulübersicht",
-                 modules=saved_modules, page=0))
+    # 2. Register the view so buttons work instantly after a reboot    
+    for menu_key, modules_list in saved_modules.items():
+            # Register a view for EACH menu!
+            title = "Modulübersicht" # Or map this dynamically based on menu_key
+            
+            # 3. Calculate the hash so the loop knows where we left off
+            text_commands.menu_hashes[menu_key] = generate_data_hash(
+                saved_modules)            
+            
+            bot.add_view(ModuleView(title=title, modules=modules_list, menu_key=menu_key, page=0))    
 
     # 4. Start the background loop to watch for future changes
     print("✅ Boot sequence complete. Loaded modules from DB.")
