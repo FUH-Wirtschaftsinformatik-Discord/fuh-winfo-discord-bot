@@ -346,7 +346,6 @@ async def setup(bot: commands.Bot) -> None:
     text_commands = QuickMenu(bot)
 
     # 1. Instantly load the last known good state from our local database!
-    # saved_modules = fetch_modules_from_db_by_key("wiwi")
     saved_modules = fetch_modules_from_db()
 
     # 2. Register the view so buttons work instantly after a reboot    
