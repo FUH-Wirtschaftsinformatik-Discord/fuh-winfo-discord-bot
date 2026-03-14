@@ -1,0 +1,50 @@
+{
+  "categories": {
+    "Wiinfo Pflichtmodule": [
+      {
+        "id": "31001",
+        "channel_id": 1459283362282864711,
+        "description": "EWIWI"
+      },
+      {
+        "id": "64111",
+        "channel_id": 1457486015122903227,
+        "description": "Betriebliche Informationssysteme"
+      },
+      {
+        "id": "31051",
+        "channel_id": 1459280948351864842,
+        "description": "Makro"
+      }
+    ],
+
+    "Wahlpflichtmodule 3xxxx": [
+      {
+        "id": "31831",
+        "channel_id": 1459283587844145447,
+        "description": "Knowledge Management"
+      },
+	  {
+        "id": "31801",
+        "channel_id": 1459283977528545474,
+        "description": "ProblemlÃ¶sen in graphischen Strukturen"
+      }
+    ],
+
+    "Wahlpflichtmodule 6xxxx": [
+      {
+        "id": "63117",
+        "channel_id": 1420813767641399466,
+        "description": "Data Mining"
+      }
+    ],
+
+    "Wiinfo Mastermodule 32xxx": [
+      {
+        "id": "32491",
+        "channel_id": 1459284313152688310,
+        "description": "Angewandte Datenanalyse"
+      }
+    ]
+  }
+}
