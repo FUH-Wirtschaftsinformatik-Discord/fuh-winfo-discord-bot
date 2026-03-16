@@ -2,9 +2,12 @@ import re
 
 import discord
 
+from models import ModuleItem
+
+
 class QuickMenuView(discord.ui.View):
-    
-    def __init__(self, title, modules, menu_type: str, page=0):
+
+    def __init__(self, title, modules: list[ModuleItem], menu_type: str, page=0):
         super().__init__(timeout=None)
 
         self.title = title
@@ -18,18 +21,19 @@ class QuickMenuView(discord.ui.View):
         # 2. Previous Button
         prev_button = QuickMenuPreviousButton(self.menu_type)
         if page <= 0:
-            prev_button.disabled = True # Gray it out on the first page
+            prev_button.disabled = True  # Gray it out on the first page
         self.add_item(prev_button)
 
         # 3. Next Button
         next_button = QuickMenuNextButton(self.menu_type)
         if (page + 1) * 25 >= len(modules):
-            next_button.disabled = True # Gray it out on the last page
+            next_button.disabled = True  # Gray it out on the last page
         self.add_item(next_button)
 
+
 class QuickMenuSelect(discord.ui.Select):
-    
-    def __init__(self, modules, page, title, menu_type: str):
+
+    def __init__(self, modules: list[ModuleItem], page, title, menu_type: str):
         self.modules = modules
         self.page = page
         self.title = title
@@ -42,8 +46,8 @@ class QuickMenuSelect(discord.ui.Select):
 
         options = [
             discord.SelectOption(
-                label=f"{m['id']} – {m['description'][:40]}",
-                value=m["id"]
+                label=f"{m.id} – {m.description[:40]}",
+                value=m.id
             )
             for m in page_items
         ]
@@ -63,19 +67,19 @@ class QuickMenuSelect(discord.ui.Select):
 
         try:
             module = next(m for m in self.modules if str(
-                m["id"]) == self.values[0])
+                m.id) == self.values[0])
         except StopIteration:
             await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
-        channel = interaction.guild.get_channel(module["channel_id"])
+        channel = interaction.guild.get_channel(module.channel_id)
 
         if not channel:
             await interaction.followup.send("Kanal nicht gefunden.", ephemeral=True)
             return
 
         await interaction.followup.send(
-            f"🔗 **Modul: {module['description'][:40]} ({module['id']})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
+            f"🔗 **Modul: {module.description[:40]} ({module.id})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
             ephemeral=True
         )
 
@@ -99,18 +103,19 @@ class QuickMenuNextButton(discord.ui.Button):
         try:
             # The Select Menu is always the first item in the first Action Row
             placeholder = interaction.message.components[0].children[0].placeholder
-            
+
             # Extract the number from "(Seite X)"
             match = re.search(r'Seite (\d+)', placeholder)
             if match:
                 current_page = int(match.group(1)) - 1
         except Exception:
-            pass # Fallback to 0 if something goes wrong
+            pass  # Fallback to 0 if something goes wrong
 
         next_page = current_page + 1
 
         await interaction.message.edit(
-            view=QuickMenuView(view.title, view.modules, self.menu_type, next_page)
+            view=QuickMenuView(view.title, view.modules,
+                               self.menu_type, next_page)
         )
 
 
@@ -118,7 +123,7 @@ class QuickMenuPreviousButton(discord.ui.Button):
     def __init__(self, menu_key: str):
         self.menu_key = menu_key
         super().__init__(
-            label="⬅️", 
+            label="⬅️",
             style=discord.ButtonStyle.primary,
             custom_id=f"persistent_view:{self.menu_key}:module_prev"
         )
@@ -148,5 +153,6 @@ class QuickMenuPreviousButton(discord.ui.Button):
 
         # 2. Use message.edit() instead of response.edit_message() because we deferred!
         await interaction.message.edit(
-            view=QuickMenuView(view.title, view.modules, self.menu_key, prev_page)
+            view=QuickMenuView(view.title, view.modules,
+                               self.menu_key, prev_page)
         )

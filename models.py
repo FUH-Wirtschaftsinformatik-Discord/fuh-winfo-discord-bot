@@ -9,7 +9,7 @@ from peewee import ModelSelect
 from playhouse.migrate import *
 from dataclasses import dataclass
 from typing import List
-
+from enum import StrEnum
 
 db = SqliteDatabase("data/db.sqlite3", pragmas={
     'journal_mode': 'wal',
@@ -73,7 +73,6 @@ class NewsArticle(BaseModel):
     pub_date = CharField()
 
 
-
 class Poll(BaseModel):
     question = CharField()
     author = IntegerField()
@@ -82,7 +81,8 @@ class Poll(BaseModel):
 
     def get_embed(self) -> discord.Embed:
         embed = discord.Embed(title="Umfrage", description=self.question)
-        embed.add_field(name="Erstellt von", value=f'<@!{self.author}>', inline=False)
+        embed.add_field(name="Erstellt von",
+                        value=f'<@!{self.author}>', inline=False)
         embed.add_field(name="\u200b", value="\u200b", inline=False)
 
         for choice in self.choices:
@@ -96,7 +96,8 @@ class Poll(BaseModel):
                             PollChoice.poll == self)}
 
         embed.add_field(name="\u200b", value="\u200b", inline=False)
-        embed.add_field(name="Anzahl der Teilnehmer an der Umfrage", value=f"{len(participants)}", inline=False)
+        embed.add_field(name="Anzahl der Teilnehmer an der Umfrage",
+                        value=f"{len(participants)}", inline=False)
 
         return embed
 
@@ -148,13 +149,17 @@ class Appointment(BaseModel):
         embed.color = Colour.green() if state == 0 else Colour.yellow() if state == 1 else 19607
 
         if len(self.description) > 0:
-            embed.add_field(name="Beschreibung", value=self.description, inline=False)
+            embed.add_field(name="Beschreibung",
+                            value=self.description, inline=False)
 
-        embed.add_field(name="Startzeitpunkt", value=self.get_start_time(state), inline=False)
+        embed.add_field(name="Startzeitpunkt",
+                        value=self.get_start_time(state), inline=False)
         if self.reminder > 0 and state == 0:
-            embed.add_field(name="Erinnerung", value=f"{self.reminder} Minuten vor dem Start", inline=False)
+            embed.add_field(
+                name="Erinnerung", value=f"{self.reminder} Minuten vor dem Start", inline=False)
         if self.recurring > 0:
-            embed.add_field(name="Wiederholung", value=f"Alle {self.recurring} Tage", inline=False)
+            embed.add_field(name="Wiederholung",
+                            value=f"Alle {self.recurring} Tage", inline=False)
         if len(attendees) > 0:
             embed.add_field(name=f"Teilnehmerinnen ({len(attendees)})",
                             value=",".join([f"<@{attendee.member_id}>" for attendee in attendees]))
@@ -165,7 +170,8 @@ class Appointment(BaseModel):
         if self.reminder_sent:
             return self.date_time
         elif datetime.now() >= self.date_time:
-            Appointment.update(reminder_sent=True).where(Appointment.id == self.id).execute()
+            Appointment.update(reminder_sent=True).where(
+                Appointment.id == self.id).execute()
             self.reminder_sent = True
             return self.date_time
         else:
@@ -174,46 +180,46 @@ class Appointment(BaseModel):
     def get_start_time(self, state) -> str:
         if state == 0:
             return f"<t:{int(self.date_time.timestamp())}:F>"
-        
+
         return f"<t:{int(self.date_time.timestamp())}:F> (<t:{int(self.date_time.timestamp())}:R>)"
 
     def get_ics_file(self):
         fmt = "%Y%m%dT%H%M"
         appointment = f"BEGIN:VCALENDAR\n" \
-                      f"PRODID:Boty McBotface\n" \
-                      f"VERSION:2.0\n" \
-                      f"BEGIN:VTIMEZONE\n" \
-                      f"TZID:Europe/Berlin\n" \
-                      f"BEGIN:DAYLIGHT\n" \
-                      f"TZOFFSETFROM:+0100\n" \
-                      f"TZOFFSETTO:+0200\n" \
-                      f"TZNAME:CEST\n" \
-                      f"DTSTART:19700329T020000\n" \
-                      f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\n" \
-                      f"END:DAYLIGHT\n" \
-                      f"BEGIN:STANDARD\n" \
-                      f"TZOFFSETFROM:+0200\n" \
-                      f"TZOFFSETTO:+0100\n" \
-                      f"TZNAME:CET\n" \
-                      f"DTSTART:19701025T030000\n" \
-                      f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\n" \
-                      f"END:STANDARD\n" \
-                      f"END:VTIMEZONE\n" \
-                      f"BEGIN:VEVENT\n" \
-                      f"DTSTAMP:{datetime.now().strftime(fmt)}00Z\n" \
-                      f"UID:{self.uuid}\n" \
-                      f"SUMMARY:{self.title}\n"
+            f"PRODID:Boty McBotface\n" \
+            f"VERSION:2.0\n" \
+            f"BEGIN:VTIMEZONE\n" \
+            f"TZID:Europe/Berlin\n" \
+            f"BEGIN:DAYLIGHT\n" \
+            f"TZOFFSETFROM:+0100\n" \
+            f"TZOFFSETTO:+0200\n" \
+            f"TZNAME:CEST\n" \
+            f"DTSTART:19700329T020000\n" \
+            f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\n" \
+            f"END:DAYLIGHT\n" \
+            f"BEGIN:STANDARD\n" \
+            f"TZOFFSETFROM:+0200\n" \
+            f"TZOFFSETTO:+0100\n" \
+            f"TZNAME:CET\n" \
+            f"DTSTART:19701025T030000\n" \
+            f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\n" \
+            f"END:STANDARD\n" \
+            f"END:VTIMEZONE\n" \
+            f"BEGIN:VEVENT\n" \
+            f"DTSTAMP:{datetime.now().strftime(fmt)}00Z\n" \
+            f"UID:{self.uuid}\n" \
+            f"SUMMARY:{self.title}\n"
         appointment += f"RRULE:FREQ=DAILY;INTERVAL={self.recurring}\n" if self.recurring else f""
         appointment += f"DTSTART;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
-                       f"DTEND;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
-                       f"TRANSP:OPAQUE\n" \
-                       f"BEGIN:VALARM\n" \
-                       f"ACTION:DISPLAY\n" \
-                       f"TRIGGER;VALUE=DURATION:-PT{self.reminder}M\n" \
-                       f"DESCRIPTION:{self.description}\n" \
-                       f"END:VALARM\n" \
-                       f"END:VEVENT\n" \
-                       f"END:VCALENDAR"
+            f"DTEND;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
+            f"TRANSP:OPAQUE\n" \
+            f"BEGIN:VALARM\n" \
+            f"ACTION:DISPLAY\n" \
+            f"TRIGGER;VALUE=DURATION:-PT{self.reminder}M\n" \
+            f"DESCRIPTION:{self.description}\n" \
+            f"END:VALARM\n" \
+            f"END:VEVENT\n" \
+            f"END:VCALENDAR"
         ics_file = io.BytesIO(appointment.encode("utf-8"))
         return ics_file
 
@@ -291,17 +297,18 @@ class ModuleGradeStatistics(BaseModel):
     insufficient = IntegerField(default=0)
 
     class Meta:
-       primary_key = CompositeKey('module_number', 'year', 'is_summer_semester', 'examination_period')
+        primary_key = CompositeKey(
+            'module_number', 'year', 'is_summer_semester', 'examination_period')
 
 
 class GradeStatisticsImage(BaseModel):
     number = ForeignKeyField(UniversityModule, primary_key=True)
     path = CharField()
-    
+
 
 class ExtractedGradeStatistics:
-    def __init__(self, 
-                 module_number: int, 
+    def __init__(self,
+                 module_number: int,
                  module_name: str,
                  is_summer_semester: bool,
                  year: int,
@@ -312,15 +319,16 @@ class ExtractedGradeStatistics:
         self.year = year
         self.examination_period = examination_period
         self.grades_overview = {}  # key: student_id or exam_id, value: grade
-        self.anonyomous=False
-        self.very_good=0
-        self.good=0
-        self.satisfactory=0
-        self.sufficient=0
-        self.insufficient=0
-    
+        self.anonyomous = False
+        self.very_good = 0
+        self.good = 0
+        self.satisfactory = 0
+        self.sufficient = 0
+        self.insufficient = 0
+
     def get_participant_count(self) -> int:
-        participants = self.very_good + self.good + self.satisfactory + self.sufficient + self.insufficient
+        participants = self.very_good + self.good + \
+            self.satisfactory + self.sufficient + self.insufficient
         return participants
 
 
@@ -334,9 +342,30 @@ class SemesterStatistics:
     sufficient: List
     insufficient: List
     no_statistics: List
+
     
+class ModuleType(StrEnum):
+    LECTURE = "lecture"
+    SEMINAR = "seminar"
+    EXAM = "exam"
+
+
+@dataclass
+class MenuConfig:
+    guild_id: int | None
+    channel_id: int | None
+    message_id: int | None
+
+
+@dataclass
+class ModuleItem:
+    id: str | None
+    description: str | None
+    channel_id: int | None
+    module_type: ModuleType | None
+
+
 # Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
      Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
-

@@ -1,12 +1,13 @@
+from dataclasses import asdict
 import os
 import re
 from typing import List
 
-from attr import asdict, dataclass
 from discord import CategoryChannel, app_commands, Interaction
 import discord
 from discord.ext import commands
 
+from models import MenuConfig, ModuleItem, ModuleType
 from views.quick_menu_view import QuickMenuView
 
 import hashlib
@@ -17,67 +18,11 @@ MODULES_DB_FILE = "data/modules_db.json"
 CONFIG_FILE = "data/menu_config.json"
 
 
-import json
-from dataclasses import dataclass
-
-# # 1. Define what a single module looks like
-# @dataclass
-# class ModuleItem:
-#     id: str
-#     description: str
-#     channel_id: int
-
-# # Your JSON string
-# json_string = """
-# {
-#     "pflicht-wiwi": [
-#         {
-#             "id": "12345",
-#             "description": "Modul1",
-#             "channel_id": 1482355330813001840
-#         },
-#         {
-#             "id": "45678",
-#             "description": "Modul2",
-#             "channel_id": 1482355549923184661
-#         }
-#     ]
-# }
-# """
-
-# # 2. Parse the JSON string into standard Python dictionaries and lists
-# raw_data = json.loads(json_string)
-
-# # 3. Deserialize it into your custom objects
-# deserialized_menus = {}
-
-# for menu_key, module_list in raw_data.items():
-#     # Loop through the list and convert each dictionary into a ModuleItem
-#     # The ** operator unpacks the dictionary keys directly into the dataclass parameters
-#     deserialized_menus[menu_key] = [ModuleItem(**item) for item in module_list]
-
-# # --- Testing the result ---
-# print(deserialized_menus["pflicht-wiwi"][0].description) 
-# # Output: Modul1
-# print(deserialized_menus["pflicht-wiwi"][1].channel_id)  
-# # Output: 1482355549923184661
-
-        
-@dataclass
-class MenuConfig:
-    guild_id: int | None
-    channel_id: int | None
-    message_id: int | None      
-    
-@dataclass
-class QuickMenuItem:
-    id: str | None
-    description: str | None
-    channel_id: int | None         
-
-def generate_data_hash(modules_list):
+def generate_data_hash(modules_list: list[ModuleItem]):
     """Converts the modules list into a unique hash string to detect changes."""
-    data_string = json.dumps(modules_list, sort_keys=True)
+    dict_list = [asdict(item) for item in modules_list]
+
+    data_string = json.dumps(dict_list, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
 
 
@@ -89,29 +34,41 @@ def save_modules_to_db_by_key(menu_type: str, modules_list: list):
     save_modules_to_db(modules)
 
 
-def save_modules_to_db(complete_database: any):
+def save_modules_to_db(complete_database: dict[str, list['ModuleItem']]):
     """Saves the scraped module data to our local JSON database."""
+
+    # 1. Iterate through the dictionary, AND iterate through the lists
+    serializable_data = {
+        menu_key: [asdict(module) for module in module_list]
+        for menu_key, module_list in complete_database.items()
+    }
+
+    # 2. Save to JSON
     with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(complete_database, f, indent=4, ensure_ascii=False)
-    print(f"Saved {len(complete_database)} modules to the database.")
+        json.dump(serializable_data, f, indent=4, ensure_ascii=False)
+
+    # 3. Accurately count the items (summing the length of all lists)
+    total_modules = sum(len(module_list)
+                        for module_list in complete_database.values())
+    print(
+        f"Saved {total_modules} modules across {len(complete_database)} categories to the database.")
 
 
-def fetch_modules_from_db_by_key(key: str):
-    """Loads the module data from the local JSON database."""
-    modules = fetch_modules_from_db()
-
-    if key in modules:
-        return modules[key]
-
-    return []  
-
-
-def fetch_modules_from_db():
+def fetch_modules_from_db() -> dict[str, list[ModuleItem]]:
     """Loads the module data from the local JSON database."""
     if os.path.exists(MODULES_DB_FILE):
         with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}  
+            deserialized_menus = {}
+            the_json = json.load(f)
+
+            for menu_key, module_list in the_json.items():
+                # Loop through the list and convert each dictionary into a ModuleItem
+                # The ** operator unpacks the dictionary keys directly into the dataclass parameters
+                deserialized_menus[menu_key] = [
+                    ModuleItem(**item) for item in module_list]
+
+            return deserialized_menus
+    return {}
 
 
 def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id: int):
@@ -119,25 +76,26 @@ def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id:
 
     existing_config = load_menu_config()
     existing_config[menu_type] = MenuConfig(guild_id, channel_id, message_id)
-    
+
     # asdict() automatically converts your dataclass into a JSON-safe dictionary
     serializable_data = {
         menu_key: asdict(config_object) for menu_key, config_object in existing_config.items()
     }
-    
+
     with open(CONFIG_FILE, "w") as f:
-        json.dump(serializable_data, f, indent=4)    
-    
+        json.dump(serializable_data, f, indent=4)
+
 
 def load_menu_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r") as f:
             raw_data = json.load(f)
-            
+
             return {
-                menu_key: MenuConfig(**data)  for menu_key, data in raw_data.items()
+                menu_key: MenuConfig(**data) for menu_key, data in raw_data.items()
             }
     return {}
+
 
 def get_parent_category_name(menu_type: str):
     parent_category = ""
@@ -207,12 +165,12 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # ==========================================
         # UPGRADE 1: CLEANUP GHOST MENUS
         # ==========================================
-        if getattr(self, "menu_message_id", None) and getattr(self, "menu_channel_id", None):
+        if self.menus.get(menu_type.value) and self.menus[menu_type.value].message_id and self.menus[menu_type.value].channel_id:
             try:
                 old_channel = interaction.guild.get_channel(
-                    self.menus[menu_type.value]["channel_id"])
+                    self.menus[menu_type.value].channel_id)
                 if old_channel:
-                    old_message = await old_channel.fetch_message(self.menus[menu_type.value]["message_id"])
+                    old_message = await old_channel.fetch_message(self.menus[menu_type.value].message_id)
                     await old_message.delete()
             except discord.NotFound:
                 pass  # Old message was already deleted by a user, which is fine!
@@ -236,13 +194,10 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
         # ==========================================
         self.menu_hashes[menu_type.value] = generate_data_hash(menu_items)
-        
-        self.menus[menu_type.value] = {
-            "guild_id": interaction.guild.id,
-            "channel_id": interaction.channel.id,
-            "message_id": message.id
-            }
-        
+
+        self.menus[menu_type.value] = MenuConfig(
+            interaction.guild.id, interaction.channel.id, message.id)
+
         try:
             save_menu_config(menu_type.value, interaction.guild.id,
                              interaction.channel.id, message.id)
@@ -252,11 +207,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             # If the hard drive is full or file is locked, warn the admin but don't crash
             await interaction.followup.send(f"Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
 
-    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str):
+    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str) -> list[ModuleItem]:
         module_categories = self.get_module_categories_of_parent_category(
             all_categories, parent_category)
 
-        menu_items = []
+        menu_items: list[ModuleItem] = []
 
         for category in module_categories:
             # Extract the module number from the category name, if it exists
@@ -279,23 +234,21 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             if channel is None:
                 continue
 
-            menu_items.append({
-                "id": module_number,
-                "description": module_name,
-                "channel_id": channel.id
-            })
+            module_item = ModuleItem(
+                channel_id=channel.id, description=module_name, id=module_number, module_type=ModuleType.LECTURE)
+            menu_items.append(module_item)
 
         return menu_items
 
     @tasks.loop(minutes=5)
     async def menu_updater_loop(self):
 
-        for menu_type, config in self.menus.items():
+        for menu_type, menu_config in self.menus.items():
 
-            if config.get("channel_id") is None:
+            if menu_config.channel_id is None:
                 return
 
-            guild = self.bot.get_guild(config["guild_id"])
+            guild = self.bot.get_guild(menu_config.guild_id)
 
             if not guild:
                 return
@@ -314,17 +267,20 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             save_modules_to_db_by_key(menu_type, live_modules_data)
 
             # 4. Compare with the currently displayed menu
-            if new_hash == self.menu_hashes[menu_type]:
-                return  # Nothing changed, skip the Discord API call
+            if hasattr(self.menu_hashes, 'menu_hashes') and new_hash == self.menu_hashes[menu_type]:
+                # Nothing changed, skip the Discord API call
+                return
 
             # ... (The rest of the update/self-healing logic remains exactly the same) ...
             channel = self.bot.get_channel(
-                self.menus[menu_type]["channel_id"])
+                self.menus[menu_type].channel_id)
 
             try:
-                message = await channel.fetch_message(self.menus[menu_type]["message_id"])
+                message = await channel.fetch_message(self.menus[menu_type].message_id)
                 view = QuickMenuView(title="Modulübersicht",
-                                     modules=live_modules_data, menu_type=menu_type, page=0)
+                                     modules=live_modules_data,
+                                     menu_type=menu_type,
+                                     page=0)
                 await message.edit(view=view)
 
                 self.menu_hashes[menu_type] = new_hash
@@ -332,7 +288,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
             except discord.NotFound:
                 # Handle deleted message...
-                self.menus[menu_type]["message_id"] = None
+                self.menus[menu_type].message_id = None
                 pass
 
     @menu_updater_loop.before_loop
@@ -425,7 +381,7 @@ async def setup(bot: commands.Bot) -> None:
 
         # 3. Calculate the hash so the loop knows where we left off
         text_commands.menu_hashes[menu_key] = generate_data_hash(
-            saved_modules)
+            saved_modules[menu_key])
 
         bot.add_view(QuickMenuView(
             title=title, modules=modules_list, menu_type=menu_key, page=0))
