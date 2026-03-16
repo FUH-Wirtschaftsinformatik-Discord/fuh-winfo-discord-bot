@@ -346,7 +346,12 @@ class SemesterStatistics:
     
 class ModuleMenuType(StrEnum):
     PFLICHT_WIWI = "pflicht-wiwi"
-
+    PFLICHT_INFO = "pflicht-info"
+    PFLICHT_WINFO = "pflicht-winfo"
+    PFLICHT_MATHE = "pflicht-mathe"
+    WAHL_INFO = "wahl-info"
+    WAHL_WIWI = "wahl-wiwi"
+    WAHL_WINFO = "wahl-winfo"
 
 @dataclass
 class MenuConfig:

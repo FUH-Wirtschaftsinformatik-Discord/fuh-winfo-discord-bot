@@ -94,22 +94,32 @@ def load_menu_config():
     return {}
 
 
-def get_parent_category_name(menu_type: str):
-    parent_category = ""
+def get_parent_category_name(menu_type: str) -> str | None:
+    
+    try:
+        menu_type = ModuleMenuType(menu_type)
 
-    if menu_type == "pflicht-wiwi":
-        return "Pflichtmodule Wirtschaftswissenschaften"
+        if menu_type == ModuleMenuType.PFLICHT_WIWI:
+            return "Pflichtmodule Wirtschaftswissenschaften"
+        elif menu_type == ModuleMenuType.PFLICHT_INFO:
+            return "Pflichtmodule Informatik"
+        elif menu_type == ModuleMenuType.PFLICHT_WINFO:
+            return "Pflichtmodule Wirtschaftsinformatik"
+        elif menu_type == ModuleMenuType.PFLICHT_MATHE:
+            return "Pflichtmodule Mathematik"
+        elif menu_type == ModuleMenuType.WAHL_WIWI:
+            return "Wahlpflichtmodule Wirtschaftswissenschaften"
+        elif menu_type == ModuleMenuType.WAHL_INFO:
+            return "Wahlpflichtmodule Informatik"
+        elif menu_type == ModuleMenuType.WAHL_WINFO:
+            return "Wahlpflichtmodule Wirtschaftsinformatik"
+        
+        return None
+    except:
+        return None
 
-    choice1 = "Wahlpflichmodule Informatik"
-    choice2 = "Wahlpflichtmodule Wirtschaftswissenschaften"
-    choice3 = "Pflichtmodule Informatik"
-    choice4 = "Pflichtmodule Wirtschaftswissenschaften"
-    choice5 = "Pflichtmodule Wirtschaftswissenschaften"
-    choice6 = "Wahlpflichmodule Wirtschaftsinformatik"
-    choice6 = "Pflichtmodule Mathematik"
 
-    return parent_category
-
+   
 
 def convert_to_clean_string(input: str):
     return input.lower().strip()
@@ -141,6 +151,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         await interaction.response.defer()
 
         parent_category = get_parent_category_name(menu_type.value)
+        
+        if parent_category is None:
+            await interaction.followup.send("Unbekannter Menütyp. Bitte wähle einen gültigen Typ aus.", ephemeral=True)
+            return
+        
         clean_parent_category = convert_to_clean_string(parent_category)
 
         if not parent_category or len(parent_category) == 0:
@@ -354,12 +369,12 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             start_index += 1
 
         if start_index == -1 and end_index == -1:
-            return test_channels
-        if end_index == -1:
-            test_channels = categories[start_index:]
-            return test_channels
-        if start_index == -1:
+            return []
+        elif start_index == -1:
             test_channels = categories[:end_index]
+            return test_channels
+        elif end_index == -1:
+            test_channels = categories[start_index:]
             return test_channels
 
         return categories[start_index:end_index]
