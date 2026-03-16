@@ -344,10 +344,8 @@ class SemesterStatistics:
     no_statistics: List
 
     
-class ModuleType(StrEnum):
-    LECTURE = "lecture"
-    SEMINAR = "seminar"
-    EXAM = "exam"
+class ModuleMenuType(StrEnum):
+    PFLICHT_WIWI = "pflicht-wiwi"
 
 
 @dataclass
@@ -355,6 +353,7 @@ class MenuConfig:
     guild_id: int | None
     channel_id: int | None
     message_id: int | None
+    menu_type: ModuleMenuType | None
 
 
 @dataclass
@@ -362,7 +361,7 @@ class ModuleItem:
     id: str | None
     description: str | None
     channel_id: int | None
-    module_type: ModuleType | None
+    menu_type: ModuleMenuType | None
 
 
 # Create all tables

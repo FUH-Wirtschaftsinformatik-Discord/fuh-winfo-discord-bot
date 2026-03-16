@@ -7,7 +7,7 @@ from discord import CategoryChannel, app_commands, Interaction
 import discord
 from discord.ext import commands
 
-from models import MenuConfig, ModuleItem, ModuleType
+from models import MenuConfig, ModuleItem, ModuleMenuType
 from views.quick_menu_view import QuickMenuView
 
 import hashlib
@@ -37,17 +37,14 @@ def save_modules_to_db_by_key(menu_type: str, modules_list: list):
 def save_modules_to_db(complete_database: dict[str, list['ModuleItem']]):
     """Saves the scraped module data to our local JSON database."""
 
-    # 1. Iterate through the dictionary, AND iterate through the lists
     serializable_data = {
         menu_key: [asdict(module) for module in module_list]
         for menu_key, module_list in complete_database.items()
     }
 
-    # 2. Save to JSON
     with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, indent=4, ensure_ascii=False)
+        json.dump(serializable_data, f, indent=4, ensure_ascii=False, sort_keys=True)
 
-    # 3. Accurately count the items (summing the length of all lists)
     total_modules = sum(len(module_list)
                         for module_list in complete_database.values())
     print(
@@ -75,7 +72,7 @@ def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id:
     """Saves the guild, channel, and message IDs to a JSON file."""
 
     existing_config = load_menu_config()
-    existing_config[menu_type] = MenuConfig(guild_id, channel_id, message_id)
+    existing_config[menu_type] = MenuConfig(guild_id, channel_id, message_id, ModuleMenuType.PFLICHT_WIWI)
 
     # asdict() automatically converts your dataclass into a JSON-safe dictionary
     serializable_data = {
@@ -83,7 +80,7 @@ def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id:
     }
 
     with open(CONFIG_FILE, "w") as f:
-        json.dump(serializable_data, f, indent=4)
+        json.dump(serializable_data, f, indent=4, sort_keys=True)
 
 
 def load_menu_config():
@@ -196,7 +193,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
         self.menu_hashes[menu_type.value] = generate_data_hash(menu_items)
 
         self.menus[menu_type.value] = MenuConfig(
-            interaction.guild.id, interaction.channel.id, message.id)
+            interaction.guild.id, interaction.channel.id, message.id, ModuleMenuType.PFLICHT_WIWI)
 
         try:
             save_menu_config(menu_type.value, interaction.guild.id,
@@ -235,7 +232,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 continue
 
             module_item = ModuleItem(
-                channel_id=channel.id, description=module_name, id=module_number, module_type=ModuleType.LECTURE)
+                channel_id=channel.id, description=module_name, id=module_number, menu_type=ModuleMenuType.PFLICHT_WIWI)
             menu_items.append(module_item)
 
         return menu_items
