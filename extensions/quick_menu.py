@@ -43,7 +43,8 @@ def save_modules_to_db(complete_database: dict[str, list['ModuleItem']]):
     }
 
     with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, indent=4, ensure_ascii=False, sort_keys=True)
+        json.dump(serializable_data, f, indent=4,
+                  ensure_ascii=False, sort_keys=True)
 
     total_modules = sum(len(module_list)
                         for module_list in complete_database.values())
@@ -72,7 +73,8 @@ def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id:
     """Saves the guild, channel, and message IDs to a JSON file."""
 
     existing_config = load_menu_config()
-    existing_config[menu_type] = MenuConfig(guild_id, channel_id, message_id, ModuleMenuType.PFLICHT_WIWI)
+    existing_config[menu_type] = MenuConfig(
+        guild_id, channel_id, message_id, ModuleMenuType.PFLICHT_WIWI)
 
     # asdict() automatically converts your dataclass into a JSON-safe dictionary
     serializable_data = {
@@ -95,7 +97,7 @@ def load_menu_config():
 
 
 def get_parent_category_name(menu_type: str) -> str | None:
-    
+
     try:
         menu_type = ModuleMenuType(menu_type)
 
@@ -113,13 +115,11 @@ def get_parent_category_name(menu_type: str) -> str | None:
             return "Wahlpflichtmodule Informatik"
         elif menu_type == ModuleMenuType.WAHL_WINFO:
             return "Wahlpflichtmodule Wirtschaftsinformatik"
-        
+
         return None
     except:
         return None
 
-
-   
 
 def convert_to_clean_string(input: str):
     return input.lower().strip()
@@ -131,12 +131,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-        # --- Hashing ---
         self.menu_hashes = {}
-
-        # --- Load the config file ---
         self.menus = load_menu_config()
-
         self.menu_updater_loop.start()
 
     @app_commands.command(name="pflichtmodule-wiwi", description="Zeigt ein Menü der Pflichtmodule für Wiwi an.")
@@ -150,14 +146,13 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
     async def cmd_pflichtmodule_wiwi(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
 
+        # Determine the parent category name based on the menu type
         parent_category = get_parent_category_name(menu_type.value)
-        
         if parent_category is None:
             await interaction.followup.send("Unbekannter Menütyp. Bitte wähle einen gültigen Typ aus.", ephemeral=True)
             return
-        
-        clean_parent_category = convert_to_clean_string(parent_category)
 
+        clean_parent_category = convert_to_clean_string(parent_category)
         if not parent_category or len(parent_category) == 0:
             await interaction.followup.send("Unbekannter Menütyp. Bitte wähle einen gültigen Typ aus.", ephemeral=True)
             return
@@ -170,13 +165,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             await interaction.followup.send(f"Fehler beim Laden der Kategorien: {e}", ephemeral=True)
             return
 
-        if not menu_items:
+        if not menu_items or len(menu_items) == 0:
             await interaction.followup.send("Keine Module vorhanden.", ephemeral=True)
             return
 
-        # ==========================================
-        # UPGRADE 1: CLEANUP GHOST MENUS
-        # ==========================================
+        # CLEANUP GHOST MENUS
         if self.menus.get(menu_type.value) and self.menus[menu_type.value].message_id and self.menus[menu_type.value].channel_id:
             try:
                 old_channel = interaction.guild.get_channel(
@@ -189,9 +182,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             except discord.HTTPException:
                 pass  # Ignore other API errors so it doesn't stop the new menu from spawning
 
-        # ==========================================
-        # UPGRADE 2: SEND AS A STANDARD MESSAGE
-        # ==========================================
+        # SEND AS A STANDARD MESSAGE
         try:
             # Send a brand new message to the channel, completely separate from the slash command
             title = get_parent_category_name(menu_type.value)
@@ -202,9 +193,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             await interaction.followup.send("Mir fehlen die Rechte, um in diesen Kanal zu senden.", ephemeral=True)
             return
 
-        # ==========================================
-        # UPGRADE 3: UPDATE STATE *AFTER* SUCCESS
-        # ==========================================
+        # UPDATE STATE *AFTER* SUCCESS
         self.menu_hashes[menu_type.value] = generate_data_hash(menu_items)
 
         self.menus[menu_type.value] = MenuConfig(
@@ -219,7 +208,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             # If the hard drive is full or file is locked, warn the admin but don't crash
             await interaction.followup.send(f"Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
 
-    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str) -> list[ModuleItem]:
+    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str, default_channel: str = "diskussion-und-infos") -> list[ModuleItem]:
         module_categories = self.get_module_categories_of_parent_category(
             all_categories, parent_category)
 
@@ -240,9 +229,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             if len(category.channels) == 0:
                 continue
 
-            # Try to find a channel named "diskussion-und-infos" in this category, or fallback to the first public channel if it doesn't exist
+            # Try to find a channel in this category, or fallback to the first public channel if it doesn't exist
             channel = self.get_channel_or_first_public_of_category(
-                category, "diskussion-und-infos")
+                category, default_channel)
             if channel is None:
                 continue
 
@@ -283,7 +272,6 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 # Nothing changed, skip the Discord API call
                 return
 
-            # ... (The rest of the update/self-healing logic remains exactly the same) ...
             channel = self.bot.get_channel(
                 self.menus[menu_type].channel_id)
 
