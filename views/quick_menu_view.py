@@ -7,25 +7,25 @@ from models import ModuleItem
 
 class QuickMenuView(discord.ui.View):
 
-    def __init__(self, title, modules: list[ModuleItem], menu_type: str, page=0):
+    def __init__(self, title, modules: list[ModuleItem], menu_key: str, page=0):
         super().__init__(timeout=None)
 
         self.title = title
         self.modules = modules
         self.page = page
-        self.menu_type = menu_type
+        self.menu_key = menu_key
 
         # 1. Add the Select Menu
-        self.add_item(QuickMenuSelect(modules, page, title, self.menu_type))
+        self.add_item(QuickMenuSelect(modules, page, title, self.menu_key))
 
         # 2. Previous Button
-        prev_button = QuickMenuPreviousButton(self.menu_type)
+        prev_button = QuickMenuPreviousButton(self.menu_key)
         if page <= 0:
             prev_button.disabled = True  # Gray it out on the first page
         self.add_item(prev_button)
 
         # 3. Next Button
-        next_button = QuickMenuNextButton(self.menu_type)
+        next_button = QuickMenuNextButton(self.menu_key)
         if (page + 1) * 25 >= len(modules):
             next_button.disabled = True  # Gray it out on the last page
         self.add_item(next_button)
@@ -33,11 +33,11 @@ class QuickMenuView(discord.ui.View):
 
 class QuickMenuSelect(discord.ui.Select):
 
-    def __init__(self, modules: list[ModuleItem], page, title, menu_type: str):
+    def __init__(self, modules: list[ModuleItem], page, title, menu_key: str):
         self.modules = modules
         self.page = page
         self.title = title
-        self.menu_type = menu_type
+        self.menu_key = menu_key
 
         # execute pagination logic here to determine which modules to show on this page
         start = page * 25
@@ -59,7 +59,7 @@ class QuickMenuSelect(discord.ui.Select):
         super().__init__(
             placeholder=f"📚 {title} (Seite {page + 1})",
             options=options,
-            custom_id=f"persistent_view:{self.menu_type}:module_select"
+            custom_id=f"persistent_view:{self.menu_key}:module_select"
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -72,7 +72,7 @@ class QuickMenuSelect(discord.ui.Select):
             await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
-        channel = interaction.guild.get_channel(module.channel_id)
+        channel = interaction.guild.get_channel(module.module_channel_id)
 
         if not channel:
             await interaction.followup.send("Kanal nicht gefunden.", ephemeral=True)
@@ -85,11 +85,11 @@ class QuickMenuSelect(discord.ui.Select):
 
 
 class QuickMenuNextButton(discord.ui.Button):
-    def __init__(self, menu_type: str):
-        self.menu_type = menu_type
+    def __init__(self, menu_key: str):
+        self.menu_key = menu_key
         super().__init__(label="➡️",
                          style=discord.ButtonStyle.primary,
-                         custom_id=f"persistent_view:{self.menu_type}:module_next")
+                         custom_id=f"persistent_view:{self.menu_key}:module_next")
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -115,7 +115,7 @@ class QuickMenuNextButton(discord.ui.Button):
 
         await interaction.message.edit(
             view=QuickMenuView(view.title, view.modules,
-                               self.menu_type, next_page)
+                               self.menu_key, next_page)
         )
 
 
