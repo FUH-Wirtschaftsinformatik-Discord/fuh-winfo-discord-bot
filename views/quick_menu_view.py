@@ -72,7 +72,7 @@ class QuickMenuSelect(discord.ui.Select):
             await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
-        channel = interaction.guild.get_channel(module.target_channel_id)
+        channel = interaction.guild.get_channel(module.module_channel_id)
 
         if not channel:
             await interaction.followup.send("Kanal nicht gefunden.", ephemeral=True)
