@@ -27,21 +27,14 @@ def generate_data_hash(modules_list: list[ModuleItem]):
     return hashlib.md5(data_string.encode()).hexdigest()
 
 
-def fetch_modules_from_db() -> dict[str, list[ModuleItem]]:
-    """Loads the module data from the local JSON database."""
+def fetch_modules_from_db() -> list[ModuleItem]:
+    """Loads the module data from the local JSON database as a flattened list."""
     if os.path.exists(MODULES_DB_FILE):
         with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
-            deserialized_menus = {}
             the_json = json.load(f)
-
-            for menu_key, module_list in the_json.items():
-                # Loop through the list and convert each dictionary into a ModuleItem
-                # The ** operator unpacks the dictionary keys directly into the dataclass parameters
-                deserialized_menus[menu_key] = [
-                    ModuleItem(**item) for item in module_list]
-
-            return deserialized_menus
-    return {}
+            # the_json is now expected to be a list of objects
+            return [ModuleItem(**item) for item in the_json]
+    return []
 
 
 def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id: int):
@@ -345,30 +338,25 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
         return categories[start_index:end_index]
 
-    def save_modules_to_db_by_key(self, menu_type: str, modules_list: list[ModuleItem]):
-        """Saves the scraped module data to our local JSON database."""
-        modules = fetch_modules_from_db()
+    def save_modules_to_db_by_key(self, menu_type: str, new_modules: list[ModuleItem]):
+        """Updates only the modules for a specific key within the flattened list."""
+        all_modules = fetch_modules_from_db()
+        
+        # Remove old entries for this menu_type and add the new ones
+        filtered_modules = [m for m in all_modules if m.menu_type != menu_type]
+        filtered_modules.extend(new_modules)
+        
+        self.save_modules_to_db(filtered_modules)   
+        
 
-        modules[menu_type] = modules_list
-        self.save_modules_to_db(modules)
-
-    def save_modules_to_db(self, complete_database: dict[str, list[ModuleItem]]):
-        """Saves the scraped module data to our local JSON database."""
-
-        serializable_data = {
-            menu_key: [asdict(module) for module in module_list]
-            for menu_key, module_list in complete_database.items()
-        }
+    def save_modules_to_db(self,modules_list: list[ModuleItem]):
+        """Saves the flattened modules list to the local JSON database."""
+        serializable_data = [asdict(module) for module in modules_list]
 
         with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(serializable_data, f, indent=4,
-                      ensure_ascii=False, sort_keys=True)
+            json.dump(serializable_data, f, indent=4, ensure_ascii=False)
 
-        total_modules = sum(len(module_list)
-                            for module_list in complete_database.values())
-
-        self.logger.info(
-            f"Saved {total_modules} modules across {len(complete_database)} categories to the database.")
+        self.logger.info(f"Saved {len(modules_list)} total modules to the database.")
 
 
 async def setup(bot: commands.Bot) -> None:
@@ -378,15 +366,15 @@ async def setup(bot: commands.Bot) -> None:
     saved_modules = fetch_modules_from_db()
 
     # 2. Register the view so buttons work instantly after a reboot
-    for menu_key, modules_list in saved_modules.items():
+    for modules_list in saved_modules:
         # Register a view for EACH menu!
         title = "Modulübersicht"  # Or map this dynamically based on menu_key
 
         # 3. Calculate the hash so the loop knows where we left off
-        text_commands.menu_hashes[menu_key] = generate_data_hash(
-            saved_modules[menu_key])
+        text_commands.menu_hashes[modules_list.menu_type] = generate_data_hash(
+            saved_modules[modules_list.menu_type])
 
         bot.add_view(QuickMenuView(
-            title=title, modules=modules_list, menu_type=menu_key, page=0))
+            title=title, modules=modules_list, menu_type=modules_list.menu_type, page=0))
 
     await bot.add_cog(text_commands)
