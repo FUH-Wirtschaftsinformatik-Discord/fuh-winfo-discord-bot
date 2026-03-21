@@ -363,7 +363,7 @@ class MenuConfig:
 
 @dataclass
 class ModuleItem:
-    id: str | None
+    module_number: str | None
     description: str | None
     channel_id: int | None
     menu_type: ModuleMenuType | None

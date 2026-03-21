@@ -1,4 +1,5 @@
 from dataclasses import asdict
+import logging
 import os
 import re
 from typing import List
@@ -24,32 +25,6 @@ def generate_data_hash(modules_list: list[ModuleItem]):
 
     data_string = json.dumps(dict_list, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
-
-
-def save_modules_to_db_by_key(menu_type: str, modules_list: list):
-    """Saves the scraped module data to our local JSON database."""
-    modules = fetch_modules_from_db()
-
-    modules[menu_type] = modules_list
-    save_modules_to_db(modules)
-
-
-def save_modules_to_db(complete_database: dict[str, list['ModuleItem']]):
-    """Saves the scraped module data to our local JSON database."""
-
-    serializable_data = {
-        menu_key: [asdict(module) for module in module_list]
-        for menu_key, module_list in complete_database.items()
-    }
-
-    with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, indent=4,
-                  ensure_ascii=False, sort_keys=True)
-
-    total_modules = sum(len(module_list)
-                        for module_list in complete_database.values())
-    print(
-        f"Saved {total_modules} modules across {len(complete_database)} categories to the database.")
 
 
 def fetch_modules_from_db() -> dict[str, list[ModuleItem]]:
@@ -130,6 +105,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.logger = logging.getLogger(__name__)
 
         self.menu_hashes = {}
         self.menus = load_menu_config()
@@ -208,7 +184,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             # If the hard drive is full or file is locked, warn the admin but don't crash
             await interaction.followup.send(f"Menü ist online, aber lokales Speichern fehlgeschlagen: {e}", ephemeral=True)
 
-    def get_module_categories(self, all_categories: List[CategoryChannel], parent_category: str, default_channel: str = "diskussion-und-infos") -> list[ModuleItem]:
+    def get_module_categories(self, all_categories: List[CategoryChannel],
+                              parent_category: str,
+                              default_channel: str = "diskussion-und-infos") -> list[ModuleItem]:
         module_categories = self.get_module_categories_of_parent_category(
             all_categories, parent_category)
 
@@ -236,7 +214,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 continue
 
             module_item = ModuleItem(
-                channel_id=channel.id, description=module_name, id=module_number, menu_type=ModuleMenuType.PFLICHT_WIWI)
+                channel_id=channel.id, description=module_name, module_number=module_number, menu_type=ModuleMenuType.PFLICHT_WIWI)
             menu_items.append(module_item)
 
         return menu_items
@@ -265,7 +243,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             new_hash = generate_data_hash(live_modules_data)
 
             # 3. SAVE the data to our local database!
-            save_modules_to_db_by_key(menu_type, live_modules_data)
+            self.save_modules_to_db_by_key(menu_type, live_modules_data)
 
             # 4. Compare with the currently displayed menu
             if hasattr(self.menu_hashes, 'menu_hashes') and new_hash == self.menu_hashes[menu_type]:
@@ -284,8 +262,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
                 await message.edit(view=view)
 
                 self.menu_hashes[menu_type] = new_hash
-                print("Menu automatically updated with new database data.")
-
+                self.logger.info(
+                    f"Menu '{menu_type}' automatically updated with new database data.")
             except discord.NotFound:
                 # Handle deleted message...
                 self.menus[menu_type].message_id = None
@@ -366,6 +344,31 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Dies ist ein T
             return test_channels
 
         return categories[start_index:end_index]
+
+    def save_modules_to_db_by_key(self, menu_type: str, modules_list: list[ModuleItem]):
+        """Saves the scraped module data to our local JSON database."""
+        modules = fetch_modules_from_db()
+
+        modules[menu_type] = modules_list
+        self.save_modules_to_db(modules)
+
+    def save_modules_to_db(self, complete_database: dict[str, list[ModuleItem]]):
+        """Saves the scraped module data to our local JSON database."""
+
+        serializable_data = {
+            menu_key: [asdict(module) for module in module_list]
+            for menu_key, module_list in complete_database.items()
+        }
+
+        with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(serializable_data, f, indent=4,
+                      ensure_ascii=False, sort_keys=True)
+
+        total_modules = sum(len(module_list)
+                            for module_list in complete_database.values())
+
+        self.logger.info(
+            f"Saved {total_modules} modules across {len(complete_database)} categories to the database.")
 
 
 async def setup(bot: commands.Bot) -> None:

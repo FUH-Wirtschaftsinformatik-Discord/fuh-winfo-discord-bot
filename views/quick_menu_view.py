@@ -46,8 +46,8 @@ class QuickMenuSelect(discord.ui.Select):
 
         options = [
             discord.SelectOption(
-                label=f"{m.id} – {m.description[:40]}",
-                value=m.id
+                label=f"{m.module_number} – {m.description[:40]}",
+                value=m.module_number
             )
             for m in page_items
         ]
@@ -67,7 +67,7 @@ class QuickMenuSelect(discord.ui.Select):
 
         try:
             module = next(m for m in self.modules if str(
-                m.id) == self.values[0])
+                m.module_number) == self.values[0])
         except StopIteration:
             await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
@@ -79,7 +79,7 @@ class QuickMenuSelect(discord.ui.Select):
             return
 
         await interaction.followup.send(
-            f"🔗 **Modul: {module.description[:40]} ({module.id})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
+            f"🔗 **Modul: {module.description[:40]} ({module.module_number})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
             ephemeral=True
         )
 
