@@ -15,8 +15,6 @@ from discord.ext import tasks
 from playhouse.shortcuts import model_to_dict
 
 
-# --- UTILS ---
-
 def get_parent_category_name(menu_type: str) -> str | None:
 
     try:
@@ -56,14 +54,10 @@ def generate_data_hash(modules_list: list[ModuleItem]):
 def convert_to_clean_string(input_str: str):
     return input_str.lower().strip()
 
-# --- MODULE PERSISTENCE (FLATTENED) ---
-
 
 def fetch_modules_from_db() -> list[ModuleItem]:
     """Loads modules as a flattened list."""
     return list(ModuleItem.select())
-
-# --- CONFIG PERSISTENCE (FLATTENED) ---
 
 
 def load_menu_config() -> list[MenuConfig]:
@@ -82,10 +76,9 @@ def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, messag
                       message_id=message_id, menu_type=menu_type)
 
 
-# --- COG ---
-
 @app_commands.guild_only()
-class ModuleNavigator(commands.GroupCog, name="quickmenu", description="Quick Navigation Menus"):
+class ModuleNavigator(commands.GroupCog, name="module-navigator",
+                      description="Erstellt und verwaltet Menüs, um Module in Discord-Kanälen zu navigieren."):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -93,7 +86,8 @@ class ModuleNavigator(commands.GroupCog, name="quickmenu", description="Quick Na
         self.menu_hashes = {}
 
         # We still keep a runtime dict for O(1) access during the loop.
-        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type): cfg for cfg in load_menu_config()}
+        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type)
+                       : cfg for cfg in load_menu_config()}
         self.update.start()
 
     def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleItem]):
@@ -106,7 +100,7 @@ class ModuleNavigator(commands.GroupCog, name="quickmenu", description="Quick Na
             ).execute()
             ModuleItem.bulk_create(new_modules)
 
-    @app_commands.command(name="setup-menu", description="Erstellt ein Modul-Menü.")
+    @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal basierend auf den Kategorien in diesem Server.")
     @app_commands.choices(menu_type=[
         app_commands.Choice(
             name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-wiwi"),
