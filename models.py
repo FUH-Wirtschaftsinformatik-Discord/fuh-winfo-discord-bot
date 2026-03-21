@@ -354,10 +354,13 @@ class ModuleMenuType(StrEnum):
     WAHL_WINFO = "wahl-winfo"
 
 class MenuConfig(BaseModel):
-    guild_id = IntegerField(null=True)
-    channel_id = IntegerField(null=True)
-    message_id = IntegerField(null=True)
-    menu_type = CharField(null=True)
+    guild_id = IntegerField()
+    channel_id = IntegerField()
+    message_id = IntegerField()
+    menu_type = CharField()
+
+    class Meta:
+        primary_key = CompositeKey('guild_id', 'channel_id', 'menu_type')
 
 
 class ModuleItem(BaseModel):
