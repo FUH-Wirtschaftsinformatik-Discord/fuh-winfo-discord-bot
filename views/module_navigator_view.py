@@ -5,7 +5,7 @@ import discord
 from models import ModuleItem
 
 
-class QuickMenuView(discord.ui.View):
+class ModuleNavigatorView(discord.ui.View):
 
     def __init__(self, title, modules: list[ModuleItem], menu_key: str, page=0):
         super().__init__(timeout=None)
@@ -16,22 +16,23 @@ class QuickMenuView(discord.ui.View):
         self.menu_key = menu_key
 
         # 1. Add the Select Menu
-        self.add_item(QuickMenuSelect(modules, page, title, self.menu_key))
+        self.add_item(ModuleNavigatorMenuSelect(
+            modules, page, title, self.menu_key))
 
         # 2. Previous Button
-        prev_button = QuickMenuPreviousButton(self.menu_key)
+        prev_button = ModuleNavigatorMenuPreviousButton(self.menu_key)
         if page <= 0:
             prev_button.disabled = True  # Gray it out on the first page
         self.add_item(prev_button)
 
         # 3. Next Button
-        next_button = QuickMenuNextButton(self.menu_key)
+        next_button = ModuleNavigatorMenuNextButton(self.menu_key)
         if (page + 1) * 25 >= len(modules):
             next_button.disabled = True  # Gray it out on the last page
         self.add_item(next_button)
 
 
-class QuickMenuSelect(discord.ui.Select):
+class ModuleNavigatorMenuSelect(discord.ui.Select):
 
     def __init__(self, modules: list[ModuleItem], page, title, menu_key: str):
         self.modules = modules
@@ -84,7 +85,7 @@ class QuickMenuSelect(discord.ui.Select):
         )
 
 
-class QuickMenuNextButton(discord.ui.Button):
+class ModuleNavigatorMenuNextButton(discord.ui.Button):
     def __init__(self, menu_key: str):
         self.menu_key = menu_key
         super().__init__(label="➡️",
@@ -93,7 +94,7 @@ class QuickMenuNextButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        view: QuickMenuView = self.view
+        view: ModuleNavigatorView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
             await interaction.response.send_message("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
@@ -114,12 +115,12 @@ class QuickMenuNextButton(discord.ui.Button):
         next_page = current_page + 1
 
         await interaction.message.edit(
-            view=QuickMenuView(view.title, view.modules,
-                               self.menu_key, next_page)
+            view=ModuleNavigatorView(view.title, view.modules,
+                                     self.menu_key, next_page)
         )
 
 
-class QuickMenuPreviousButton(discord.ui.Button):
+class ModuleNavigatorMenuPreviousButton(discord.ui.Button):
     def __init__(self, menu_key: str):
         self.menu_key = menu_key
         super().__init__(
@@ -133,7 +134,7 @@ class QuickMenuPreviousButton(discord.ui.Button):
         # Do not use ephemeral=True here, because we want to edit the public message.
         await interaction.response.defer()
 
-        view: QuickMenuView = self.view
+        view: ModuleNavigatorView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
             # Because we deferred, we must use followup.send() instead of response.send_message()
@@ -153,6 +154,6 @@ class QuickMenuPreviousButton(discord.ui.Button):
 
         # 2. Use message.edit() instead of response.edit_message() because we deferred!
         await interaction.message.edit(
-            view=QuickMenuView(view.title, view.modules,
-                               self.menu_key, prev_page)
+            view=ModuleNavigatorView(view.title, view.modules,
+                                     self.menu_key, prev_page)
         )

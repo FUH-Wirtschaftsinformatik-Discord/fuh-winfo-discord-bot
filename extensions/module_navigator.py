@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 
 from models import MenuConfig, ModuleItem, ModuleMenuType
-from views.quick_menu_view import QuickMenuView
+from views.module_navigator_view import ModuleNavigatorView
 
 import hashlib
 import json
@@ -85,7 +85,7 @@ def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, messag
 # --- COG ---
 
 @app_commands.guild_only()
-class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigation Menus"):
+class ModuleNavigator(commands.GroupCog, name="quickmenu", description="Quick Navigation Menus"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -93,8 +93,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         self.menu_hashes = {}
 
         # We still keep a runtime dict for O(1) access during the loop.
-        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type)                      : cfg for cfg in load_menu_config()}
-        self.menu_updater_loop.start()
+        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type): cfg for cfg in load_menu_config()}
+        self.update.start()
 
     def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleItem]):
         """Helper to update subset of modules in the flat list."""
@@ -109,9 +109,19 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
     @app_commands.command(name="setup-menu", description="Erstellt ein Modul-Menü.")
     @app_commands.choices(menu_type=[
         app_commands.Choice(
-            name="📚 Pflichtmodule Wirtschaftsinformatik", value="pflicht-wiwi"),
+            name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-wiwi"),
         app_commands.Choice(
-            name="💻 Pflichtmodule Informatik", value="pflicht-info")
+            name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
+        app_commands.Choice(
+            name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-winfo"),
+        app_commands.Choice(
+            name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
+        app_commands.Choice(
+            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-wiwi"),
+        app_commands.Choice(
+            name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
+        app_commands.Choice(
+            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-winfo"),
     ])
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
@@ -149,8 +159,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
 
         # Send New Menu
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
-        view = QuickMenuView(parent_category_name,
-                             menu_items, menu_key_str, page=0)
+        view = ModuleNavigatorView(parent_category_name,
+                                   menu_items, menu_key_str, page=0)
         msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
@@ -168,7 +178,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         await interaction.followup.send("Menü erstellt!", ephemeral=True)
 
     @tasks.loop(minutes=5)
-    async def menu_updater_loop(self):
+    async def update(self):
         for menu_key, menu_config in self.menus.items():
             guild_id, menu_channel_id, menu_type = menu_key
             guild = self.bot.get_guild(menu_config.guild_id)
@@ -203,14 +213,14 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
 
                 message = await channel.fetch_message(menu_config.message_id)
                 menu_key_str = f"{guild_id}:{menu_channel_id}:{menu_type}"
-                view = QuickMenuView(
+                view = ModuleNavigatorView(
                     title=title, modules=live_data, menu_key=menu_key_str, page=0)
                 await message.edit(view=view)
                 self.menu_hashes[menu_key] = new_hash
             except Exception as e:
                 self.logger.error(f"Loop error for {menu_type}: {e}")
 
-    @menu_updater_loop.before_loop
+    @update.before_loop
     async def before_updater(self):
         await self.bot.wait_until_ready()
 
@@ -322,7 +332,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
 
 
 async def setup(bot: commands.Bot) -> None:
-    cog = QuickMenu(bot)
+    cog = ModuleNavigator(bot)
 
     # 1. Load flattened data
     all_modules = fetch_modules_from_db()
@@ -337,7 +347,7 @@ async def setup(bot: commands.Bot) -> None:
     for (g_id, c_id, m_type), m_list in grouped.items():
         title = get_parent_category_name(m_type) or "Modulübersicht"
         menu_key_str = f"{g_id}:{c_id}:{m_type}"
-        bot.add_view(QuickMenuView(title=title, modules=m_list,
+        bot.add_view(ModuleNavigatorView(title=title, modules=m_list,
                      menu_key=menu_key_str, page=0))
 
     await bot.add_cog(cog)
