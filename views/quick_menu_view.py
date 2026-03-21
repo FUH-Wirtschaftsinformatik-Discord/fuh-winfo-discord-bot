@@ -79,7 +79,7 @@ class QuickMenuSelect(discord.ui.Select):
             return
 
         await interaction.followup.send(
-            f"🔗 **Modul: {module.description[:40]} ({module.module_number})**\nKlicke auf die Schaltfläche: ➡️{channel.mention}",
+            f"🔗 **Modul: {module.description[:40]} ({module.module_number})**\nKlicke auf die Schaltfläche um zum Kanal zu gelangen: ➡️{channel.mention}",
             ephemeral=True
         )
 

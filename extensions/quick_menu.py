@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from typing import List
 
@@ -42,20 +41,23 @@ def get_parent_category_name(menu_type: str) -> str | None:
     except:
         return None
 
+
 def generate_data_hash(modules_list: list[ModuleItem]):
     """Converts the modules list into a unique hash string."""
     dict_list = []
     for item in modules_list:
         d = model_to_dict(item)
-        d.pop('id', None) # ensure hash ignores DB primary keys
+        d.pop('id', None)  # ensure hash ignores DB primary keys
         dict_list.append(d)
     data_string = json.dumps(dict_list, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
+
 
 def convert_to_clean_string(input_str: str):
     return input_str.lower().strip()
 
 # --- MODULE PERSISTENCE (FLATTENED) ---
+
 
 def fetch_modules_from_db() -> list[ModuleItem]:
     """Loads modules as a flattened list."""
@@ -63,9 +65,11 @@ def fetch_modules_from_db() -> list[ModuleItem]:
 
 # --- CONFIG PERSISTENCE (FLATTENED) ---
 
+
 def load_menu_config() -> list[MenuConfig]:
     """Loads menu configurations as a flattened list."""
     return list(MenuConfig.select())
+
 
 def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, message_id: int):
     """Updates a specific config in the flattened list and saves."""
@@ -74,9 +78,9 @@ def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, messag
         (MenuConfig.id == menu_channel_id) &
         (MenuConfig.guild_id == guild_id)
     ).execute()
-    MenuConfig.create(guild_id=guild_id, id=menu_channel_id, message_id=message_id, menu_type=menu_type)
-        
-        
+    MenuConfig.create(guild_id=guild_id, id=menu_channel_id,
+                      message_id=message_id, menu_type=menu_type)
+
 
 # --- COG ---
 
@@ -87,9 +91,9 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         self.bot = bot
         self.logger = logging.getLogger(__name__)
         self.menu_hashes = {}
-        
+
         # We still keep a runtime dict for O(1) access during the loop.
-        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type): cfg for cfg in load_menu_config()}
+        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type)                      : cfg for cfg in load_menu_config()}
         self.menu_updater_loop.start()
 
     def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleItem]):
@@ -104,8 +108,10 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
 
     @app_commands.command(name="setup-menu", description="Erstellt ein Modul-Menü.")
     @app_commands.choices(menu_type=[
-        app_commands.Choice(name="📚 Pflicht Wiwi", value="pflicht-wiwi"),
-        app_commands.Choice(name="💻 Pflicht Info", value="pflicht-info")
+        app_commands.Choice(
+            name="📚 Pflichtmodule Wirtschaftsinformatik", value="pflicht-wiwi"),
+        app_commands.Choice(
+            name="💻 Pflichtmodule Informatik", value="pflicht-info")
     ])
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
@@ -115,7 +121,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             return await interaction.followup.send("Ungültiger Typ.", ephemeral=True)
 
         menu_items = self.get_module_categories(
-            interaction.guild.categories, 
+            interaction.guild.categories,
             convert_to_clean_string(parent_category_name)
         )
 
@@ -128,36 +134,37 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             item.menu_type = menu_type.value
 
         # Cleanup all existing menus in this channel
-        keys_to_remove = []
         for k, existing in self.menus.items():
             if k[0] == interaction.guild.id and k[1] == interaction.channel.id:
-                keys_to_remove.append(k)
                 try:
                     msg = await interaction.channel.fetch_message(existing.message_id)
                     await msg.delete()
+
+                    MenuConfig.delete().where((MenuConfig.guild_id == k[0]) & (
+                        MenuConfig.id == k[1]) & (MenuConfig.menu_type == k[2])).execute()
+                    ModuleItem.delete().where((ModuleItem.guild_id == k[0]) & (
+                        ModuleItem.menu_channel_id == k[1]) & (ModuleItem.menu_type == k[2])).execute()
                 except Exception:
                     pass
 
-        for k in keys_to_remove:
-            self.menus.pop(k, None)
-            self.menu_hashes.pop(k, None)
-            MenuConfig.delete().where((MenuConfig.guild_id == k[0]) & (MenuConfig.id == k[1]) & (MenuConfig.menu_type == k[2])).execute()
-            ModuleItem.delete().where((ModuleItem.guild_id == k[0]) & (ModuleItem.menu_channel_id == k[1]) & (ModuleItem.menu_type == k[2])).execute()
-
         # Send New Menu
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
-        view = QuickMenuView(parent_category_name, menu_items, menu_key_str, page=0)
+        view = QuickMenuView(parent_category_name,
+                             menu_items, menu_key_str, page=0)
         msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
-        menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
+        menu_key = (interaction.guild.id,
+                    interaction.channel.id, menu_type.value)
         # Update State & Persist
         self.menu_hashes[menu_key] = generate_data_hash(menu_items)
-        save_menu_config(menu_type.value, interaction.guild.id, interaction.channel.id, message.id)
-        
+        save_menu_config(menu_type.value, interaction.guild.id,
+                         interaction.channel.id, message.id)
+
         # Refresh local cache
-        self.menus[menu_key] = MenuConfig(guild_id=interaction.guild.id, menu_channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
-        
+        self.menus[menu_key] = MenuConfig(
+            guild_id=interaction.guild.id, menu_channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
+
         await interaction.followup.send("Menü erstellt!", ephemeral=True)
 
     @tasks.loop(minutes=5)
@@ -165,18 +172,21 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         for menu_key, menu_config in self.menus.items():
             guild_id, menu_channel_id, menu_type = menu_key
             guild = self.bot.get_guild(menu_config.guild_id)
-            if not guild: continue
+            if not guild:
+                continue
 
             title = get_parent_category_name(menu_type)
-            live_data = self.get_module_categories(guild.categories, convert_to_clean_string(title))
-            
+            live_data = self.get_module_categories(
+                guild.categories, convert_to_clean_string(title))
+
             for item in live_data:
                 item.guild_id = guild_id
                 item.menu_channel_id = menu_channel_id
                 item.menu_type = menu_type
 
             new_hash = generate_data_hash(live_data)
-            self.save_modules_to_db_by_key(guild_id, menu_channel_id, menu_type, live_data)
+            self.save_modules_to_db_by_key(
+                guild_id, menu_channel_id, menu_type, live_data)
 
             if self.menu_hashes.get(menu_key) == new_hash:
                 continue
@@ -187,12 +197,14 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
                     try:
                         channel = await self.bot.fetch_channel(menu_config.id)
                     except discord.NotFound:
-                        self.logger.warning(f"Kanal {menu_config.id} für Menü {menu_type} nicht gefunden. Überspringe...")
+                        self.logger.warning(
+                            f"Kanal {menu_config.id} für Menü {menu_type} nicht gefunden. Überspringe...")
                         continue
-                        
+
                 message = await channel.fetch_message(menu_config.message_id)
                 menu_key_str = f"{guild_id}:{menu_channel_id}:{menu_type}"
-                view = QuickMenuView(title=title, modules=live_data, menu_key=menu_key_str, page=0)
+                view = QuickMenuView(
+                    title=title, modules=live_data, menu_key=menu_key_str, page=0)
                 await message.edit(view=view)
                 self.menu_hashes[menu_key] = new_hash
             except Exception as e:
@@ -236,8 +248,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             menu_items.append(module_item)
 
         return menu_items
-    
-    
+
     def get_channel_or_first_public_of_category(self, category: discord.CategoryChannel, target_name: str) -> discord.TextChannel:
         """
         Finds a public channel named like in parameter 'target_name' in a category. 
@@ -309,22 +320,24 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
 
         return categories[start_index:end_index]
 
+
 async def setup(bot: commands.Bot) -> None:
     cog = QuickMenu(bot)
-    
+
     # 1. Load flattened data
     all_modules = fetch_modules_from_db()
-    
+
     # 2. Group modules by type for view registration
     from collections import defaultdict
     grouped = defaultdict(list)
     for m in all_modules:
         grouped[(m.guild_id, m.menu_channel_id, m.menu_type)].append(m)
-        
+
     # 3. Register persistent views
     for (g_id, c_id, m_type), m_list in grouped.items():
         title = get_parent_category_name(m_type) or "Modulübersicht"
         menu_key_str = f"{g_id}:{c_id}:{m_type}"
-        bot.add_view(QuickMenuView(title=title, modules=m_list, menu_key=menu_key_str, page=0))
+        bot.add_view(QuickMenuView(title=title, modules=m_list,
+                     menu_key=menu_key_str, page=0))
 
     await bot.add_cog(cog)
