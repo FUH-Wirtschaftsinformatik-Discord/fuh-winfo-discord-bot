@@ -1,4 +1,3 @@
-from dataclasses import asdict
 import logging
 import os
 import re
@@ -14,9 +13,8 @@ from views.quick_menu_view import QuickMenuView
 import hashlib
 import json
 from discord.ext import tasks
+from playhouse.shortcuts import model_to_dict
 
-MODULES_DB_FILE = "data/modules_db.json"
-CONFIG_FILE = "data/menu_config.json"
 
 # --- UTILS ---
 
@@ -46,7 +44,11 @@ def get_parent_category_name(menu_type: str) -> str | None:
 
 def generate_data_hash(modules_list: list[ModuleItem]):
     """Converts the modules list into a unique hash string."""
-    dict_list = [asdict(item) for item in modules_list]
+    dict_list = []
+    for item in modules_list:
+        d = model_to_dict(item)
+        d.pop('id', None) # ensure hash ignores DB primary keys
+        dict_list.append(d)
     data_string = json.dumps(dict_list, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
 
@@ -57,42 +59,18 @@ def convert_to_clean_string(input_str: str):
 
 def fetch_modules_from_db() -> list[ModuleItem]:
     """Loads modules as a flattened list."""
-    if os.path.exists(MODULES_DB_FILE):
-        with open(MODULES_DB_FILE, "r", encoding="utf-8") as f:
-            the_json = json.load(f)
-            return [ModuleItem(**item) for item in the_json]
-    return []
-
-def save_modules_to_db(modules_list: list[ModuleItem]):
-    """Saves a flattened list of modules."""
-    serializable_data = [asdict(module) for module in modules_list]
-    with open(MODULES_DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(serializable_data, f, indent=4, ensure_ascii=False)
+    return list(ModuleItem.select())
 
 # --- CONFIG PERSISTENCE (FLATTENED) ---
 
 def load_menu_config() -> list[MenuConfig]:
     """Loads menu configurations as a flattened list."""
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            raw_data = json.load(f)
-            return [MenuConfig(**data) for data in raw_data]
-    return []
+    return list(MenuConfig.select())
 
 def save_menu_config(menu_type: str, guild_id: int, channel_id: int, message_id: int):
     """Updates a specific config in the flattened list and saves."""
-    configs = load_menu_config()
-    
-    # Remove existing entry for this type if it exists
-    configs = [c for c in configs if c.menu_type != menu_type]
-    
-    # Add new config
-    new_cfg = MenuConfig(guild_id, channel_id, message_id, menu_type)
-    configs.append(new_cfg)
-
-    serializable_data = [asdict(cfg) for cfg in configs]
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(serializable_data, f, indent=4, sort_keys=True)
+    MenuConfig.delete().where(MenuConfig.menu_type == menu_type).execute()
+    MenuConfig.create(guild_id=guild_id, channel_id=channel_id, message_id=message_id, menu_type=menu_type)
         
         
 
@@ -106,17 +84,15 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         self.logger = logging.getLogger(__name__)
         self.menu_hashes = {}
         
-        # We still keep a runtime dict for O(1) access during the loop, 
-        # but the source of truth (file) is flat.
+        # We still keep a runtime dict for O(1) access during the loop.
         self.menus = {cfg.menu_type: cfg for cfg in load_menu_config()}
         self.menu_updater_loop.start()
 
     def save_modules_to_db_by_key(self, menu_type: str, new_modules: list[ModuleItem]):
         """Helper to update subset of modules in the flat list."""
-        all_modules = fetch_modules_from_db()
-        filtered = [m for m in all_modules if m.menu_type != menu_type]
-        filtered.extend(new_modules)
-        save_modules_to_db(filtered)
+        with ModuleItem._meta.database.atomic():
+            ModuleItem.delete().where(ModuleItem.menu_type == menu_type).execute()
+            ModuleItem.bulk_create(new_modules)
 
     @app_commands.command(name="setup-menu", description="Erstellt ein Modul-Menü.")
     @app_commands.choices(menu_type=[
@@ -157,7 +133,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         save_menu_config(menu_type.value, interaction.guild.id, interaction.channel.id, message.id)
         
         # Refresh local cache
-        self.menus[menu_type.value] = MenuConfig(interaction.guild.id, interaction.channel.id, message.id, menu_type.value)
+        self.menus[menu_type.value] = MenuConfig(guild_id=interaction.guild.id, channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
         
         await interaction.followup.send("Menü erstellt!", ephemeral=True)
 

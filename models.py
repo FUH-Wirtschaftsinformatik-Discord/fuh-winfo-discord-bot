@@ -353,23 +353,21 @@ class ModuleMenuType(StrEnum):
     WAHL_WIWI = "wahl-wiwi"
     WAHL_WINFO = "wahl-winfo"
 
-@dataclass
-class MenuConfig:
-    guild_id: int | None
-    channel_id: int | None
-    message_id: int | None
-    menu_type: ModuleMenuType | None
+class MenuConfig(BaseModel):
+    guild_id = IntegerField(null=True)
+    channel_id = IntegerField(null=True)
+    message_id = IntegerField(null=True)
+    menu_type = CharField(null=True)
 
 
-@dataclass
-class ModuleItem:
-    module_number: str | None
-    description: str | None
-    channel_id: int | None
-    menu_type: ModuleMenuType | None
+class ModuleItem(BaseModel):
+    module_number = CharField(null=True)
+    description = CharField(null=True)
+    channel_id = IntegerField(null=True)
+    menu_type = CharField(null=True)
 
 
 # Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage], safe=True)
+     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage, MenuConfig, ModuleItem], safe=True)
