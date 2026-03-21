@@ -127,16 +127,22 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             item.menu_channel_id = interaction.channel.id
             item.menu_type = menu_type.value
 
-        # Cleanup existing message if it exists
-        menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
-        existing = self.menus.get(menu_key)
-        if existing:
-            try:
-                ch = interaction.guild.get_channel(existing.id)
-                if ch:
-                    msg = await ch.fetch_message(existing.message_id)
+        # Cleanup all existing menus in this channel
+        keys_to_remove = []
+        for k, existing in self.menus.items():
+            if k[0] == interaction.guild.id and k[1] == interaction.channel.id:
+                keys_to_remove.append(k)
+                try:
+                    msg = await interaction.channel.fetch_message(existing.message_id)
                     await msg.delete()
-            except: pass
+                except Exception:
+                    pass
+
+        for k in keys_to_remove:
+            self.menus.pop(k, None)
+            self.menu_hashes.pop(k, None)
+            MenuConfig.delete().where((MenuConfig.guild_id == k[0]) & (MenuConfig.id == k[1]) & (MenuConfig.menu_type == k[2])).execute()
+            ModuleItem.delete().where((ModuleItem.guild_id == k[0]) & (ModuleItem.menu_channel_id == k[1]) & (ModuleItem.menu_type == k[2])).execute()
 
         # Send New Menu
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
@@ -144,6 +150,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
+        menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
         # Update State & Persist
         self.menu_hashes[menu_key] = generate_data_hash(menu_items)
         save_menu_config(menu_type.value, interaction.guild.id, interaction.channel.id, message.id)
