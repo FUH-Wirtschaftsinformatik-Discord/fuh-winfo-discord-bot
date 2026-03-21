@@ -364,10 +364,12 @@ class MenuConfig(BaseModel):
 
 
 class ModuleItem(BaseModel):
-    module_number = CharField(null=True)
-    description = CharField(null=True)
+    guild_id = IntegerField(null=True)
     channel_id = IntegerField(null=True)
     menu_type = CharField(null=True)
+    module_number = CharField(null=True)
+    description = CharField(null=True)
+    target_channel_id = IntegerField(null=True)
 
 
 # Create all tables

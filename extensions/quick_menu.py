@@ -92,10 +92,14 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         self.menus = {(cfg.guild_id, cfg.channel_id, cfg.menu_type): cfg for cfg in load_menu_config()}
         self.menu_updater_loop.start()
 
-    def save_modules_to_db_by_key(self, menu_type: str, new_modules: list[ModuleItem]):
+    def save_modules_to_db_by_key(self, guild_id: int, channel_id: int, menu_type: str, new_modules: list[ModuleItem]):
         """Helper to update subset of modules in the flat list."""
         with ModuleItem._meta.database.atomic():
-            ModuleItem.delete().where(ModuleItem.menu_type == menu_type).execute()
+            ModuleItem.delete().where(
+                (ModuleItem.guild_id == guild_id) &
+                (ModuleItem.channel_id == channel_id) &
+                (ModuleItem.menu_type == menu_type)
+            ).execute()
             ModuleItem.bulk_create(new_modules)
 
     @app_commands.command(name="setup-menu", description="Erstellt ein Modul-Menü.")
@@ -118,6 +122,11 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
         if not menu_items:
             return await interaction.followup.send("Keine Kategorien gefunden.", ephemeral=True)
 
+        for item in menu_items:
+            item.guild_id = interaction.guild.id
+            item.channel_id = interaction.channel.id
+            item.menu_type = menu_type.value
+
         # Cleanup existing message if it exists
         menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
         existing = self.menus.get(menu_key)
@@ -129,7 +138,8 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             except: pass
 
         # Send New Menu
-        view = QuickMenuView(parent_category_name, menu_items, menu_type.value, page=0)
+        menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
+        view = QuickMenuView(parent_category_name, menu_items, menu_key_str, page=0)
         msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
@@ -152,16 +162,22 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
             title = get_parent_category_name(menu_type)
             live_data = self.get_module_categories(guild.categories, convert_to_clean_string(title))
             
+            for item in live_data:
+                item.guild_id = guild_id
+                item.channel_id = channel_id
+                item.menu_type = menu_type
+
             new_hash = generate_data_hash(live_data)
-            self.save_modules_to_db_by_key(menu_type, live_data)
+            self.save_modules_to_db_by_key(guild_id, channel_id, menu_type, live_data)
 
             if self.menu_hashes.get(menu_key) == new_hash:
                 continue
 
             try:
                 channel = self.bot.get_channel(menu_config.channel_id)
-                message = await channel.fetch_message(message_id=menu_config.message_id)
-                view = QuickMenuView(title=title, modules=live_data, menu_type=menu_type, page=0)
+                message = await channel.fetch_message(menu_config.message_id)
+                menu_key_str = f"{guild_id}:{channel_id}:{menu_type}"
+                view = QuickMenuView(title=title, modules=live_data, menu_key=menu_key_str, page=0)
                 await message.edit(view=view)
                 self.menu_hashes[menu_key] = new_hash
             except Exception as e:
@@ -201,7 +217,7 @@ class QuickMenu(commands.GroupCog, name="quickmenu", description="Quick Navigati
                 continue
 
             module_item = ModuleItem(
-                channel_id=channel.id, description=module_name, module_number=module_number, menu_type=ModuleMenuType.PFLICHT_WIWI)
+                target_channel_id=channel.id, description=module_name, module_number=module_number)
             menu_items.append(module_item)
 
         return menu_items
@@ -288,11 +304,12 @@ async def setup(bot: commands.Bot) -> None:
     from collections import defaultdict
     grouped = defaultdict(list)
     for m in all_modules:
-        grouped[m.menu_type].append(m)
+        grouped[(m.guild_id, m.channel_id, m.menu_type)].append(m)
         
     # 3. Register persistent views
-    for m_type, m_list in grouped.items():
+    for (g_id, c_id, m_type), m_list in grouped.items():
         title = get_parent_category_name(m_type) or "Modulübersicht"
-        bot.add_view(QuickMenuView(title=title, modules=m_list, menu_type=m_type, page=0))
+        menu_key_str = f"{g_id}:{c_id}:{m_type}"
+        bot.add_view(QuickMenuView(title=title, modules=m_list, menu_key=menu_key_str, page=0))
 
     await bot.add_cog(cog)
