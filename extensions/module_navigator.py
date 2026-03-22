@@ -135,9 +135,9 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             item.menu_channel_id = interaction.channel.id
             item.menu_type = menu_type.value
 
-        # Cleanup all existing menus in this channel
+        # Cleanup existing menu of this type in this channel
         for k, existing in self.menus.items():
-            if k[0] == interaction.guild.id and k[1] == interaction.channel.id:
+            if k[0] == interaction.guild.id and k[1] == interaction.channel.id and k[2] == menu_type.value:
                 try:
                     msg = await interaction.channel.fetch_message(existing.message_id)
                     await msg.delete()
