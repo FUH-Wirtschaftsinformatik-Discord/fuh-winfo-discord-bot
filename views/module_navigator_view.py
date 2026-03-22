@@ -57,6 +57,21 @@ class ModuleNavigatorView(discord.ui.View):
             next_button.disabled = True
         self.add_item(next_button)
 
+    @staticmethod
+    def get_page_from_message(message: discord.Message) -> int:
+        """Safely extracts the current page number from the view's placeholder text."""
+        try:
+            # The Select Menu is assumed to be the first item in the first Action Row.
+            placeholder = message.components[0].children[0].placeholder
+            # Extract the number from "(Seite X)"
+            match = re.search(r'Seite (\d+)', placeholder)
+            if match:
+                return int(match.group(1)) - 1
+        except (IndexError, AttributeError):
+            # If components are not as expected, or placeholder is missing, default to page 0.
+            return 0
+        return 0
+
 
 class ModuleNavigatorMenuSelect(discord.ui.Select):
 
@@ -88,11 +103,11 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        try:
-            selected_item = next(
-                item for item in self.items if item.value == self.values[0])
-        except StopIteration:
-            await interaction.response.send_message("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
+        selected_item = next(
+            (item for item in self.items if item.value == self.values[0]), None)
+
+        if not selected_item:
+            await interaction.response.send_message("Das Menü wurde aktualisiert. Bitte wähle erneut.", ephemeral=True)
             return
 
         if selected_item.type == 'module':
@@ -108,22 +123,30 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.URL:
             await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{selected_item.value}", ephemeral=True)
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.CHANNEL:
-            channel = interaction.guild.get_channel(int(selected_item.value))
-            if not channel:
-                await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
-                return
-            await interaction.response.send_message(f"🔗 **{selected_item.label}**\n➡️{channel.mention}", ephemeral=True)
+            try:
+                channel = interaction.guild.get_channel(
+                    int(selected_item.value))
+                if not channel:
+                    await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
+                    return
+                await interaction.response.send_message(f"🔗 **{selected_item.label}**\n➡️{channel.mention}", ephemeral=True)
+            except (ValueError, TypeError):
+                await interaction.response.send_message("Ungültige Kanal-ID konfiguriert.", ephemeral=True)
+
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.POST:
-            channel_id, message_id = selected_item.value.split('/')
-            channel = interaction.guild.get_channel(int(channel_id))
-            if not channel:
-                await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
-                return
-            message = await channel.fetch_message(int(message_id))
-            if not message:
-                await interaction.response.send_message("Nachricht nicht gefunden.", ephemeral=True)
-                return
-            await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{message.jump_url}", ephemeral=True)
+            try:
+                channel_id, message_id = selected_item.value.split('/')
+                channel = interaction.guild.get_channel(int(channel_id))
+                if not channel:
+                    await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
+                    return
+                message = await channel.fetch_message(int(message_id))
+                if not message:
+                    await interaction.response.send_message("Nachricht nicht gefunden.", ephemeral=True)
+                    return
+                await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{message.jump_url}", ephemeral=True)
+            except (ValueError, TypeError):
+                await interaction.response.send_message("Ungültige Post-ID konfiguriert.", ephemeral=True)
 
 
 class ModuleNavigatorMenuNextButton(discord.ui.Button):
@@ -138,21 +161,11 @@ class ModuleNavigatorMenuNextButton(discord.ui.Button):
         view: ModuleNavigatorView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
-            await interaction.response.send_message("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
+            await interaction.followup.send("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
             return
 
-        current_page = 0
-        try:
-            # The Select Menu is always the first item in the first Action Row
-            placeholder = interaction.message.components[0].children[0].placeholder
-
-            # Extract the number from "(Seite X)"
-            match = re.search(r'Seite (\d+)', placeholder)
-            if match:
-                current_page = int(match.group(1)) - 1
-        except Exception:
-            pass  # Fallback to 0 if something goes wrong
-
+        current_page = ModuleNavigatorView.get_page_from_message(
+            interaction.message)
         next_page = current_page + 1
 
         await interaction.message.edit(
@@ -171,29 +184,17 @@ class ModuleNavigatorMenuPreviousButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        # 1. INSTANTLY catch the interaction so Discord doesn't timeout!
-        # Do not use ephemeral=True here, because we want to edit the public message.
         await interaction.response.defer()
-
         view: ModuleNavigatorView = self.view
 
         if not hasattr(view, 'modules') or not view.modules:
-            # Because we deferred, we must use followup.send() instead of response.send_message()
             await interaction.followup.send("Menü abgelaufen (Bot Neustart). Bitte neu laden.", ephemeral=True)
             return
 
-        current_page = 0
-        try:
-            placeholder = interaction.message.components[0].children[0].placeholder
-            match = re.search(r'Seite (\d+)', placeholder)
-            if match:
-                current_page = int(match.group(1)) - 1
-        except Exception:
-            pass
-
+        current_page = ModuleNavigatorView.get_page_from_message(
+            interaction.message)
         prev_page = max(current_page - 1, 0)
 
-        # 2. Use message.edit() instead of response.edit_message() because we deferred!
         await interaction.message.edit(
             view=ModuleNavigatorView(view.title, view.modules,
                                      self.menu_key, prev_page)

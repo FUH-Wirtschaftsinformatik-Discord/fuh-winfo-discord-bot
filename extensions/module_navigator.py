@@ -15,28 +15,23 @@ from discord.ext import tasks
 from playhouse.shortcuts import model_to_dict
 
 
+
+_MENU_TYPE_TO_CATEGORY_NAME = {
+    ModuleNavigatorMenuType.PFLICHT_WIWI: "Pflichtmodule Wirtschaftswissenschaften",
+    ModuleNavigatorMenuType.PFLICHT_INFO: "Pflichtmodule Informatik",
+    ModuleNavigatorMenuType.PFLICHT_WINFO: "Pflichtmodule Wirtschaftsinformatik",
+    ModuleNavigatorMenuType.PFLICHT_MATHE: "Pflichtmodule Mathematik",
+    ModuleNavigatorMenuType.WAHL_WIWI: "Wahlpflichtmodule Wirtschaftswissenschaften",
+    ModuleNavigatorMenuType.WAHL_INFO: "Wahlpflichtmodule Informatik",
+    ModuleNavigatorMenuType.WAHL_WINFO: "Wahlpflichtmodule Wirtschaftsinformatik",
+}
+
+
 def get_parent_category_name(menu_type: str) -> str | None:
-
     try:
-        menu_type = ModuleNavigatorMenuType(menu_type)
-
-        if menu_type == ModuleNavigatorMenuType.PFLICHT_WIWI:
-            return "Pflichtmodule Wirtschaftswissenschaften"
-        elif menu_type == ModuleNavigatorMenuType.PFLICHT_INFO:
-            return "Pflichtmodule Informatik"
-        elif menu_type == ModuleNavigatorMenuType.PFLICHT_WINFO:
-            return "Pflichtmodule Wirtschaftsinformatik"
-        elif menu_type == ModuleNavigatorMenuType.PFLICHT_MATHE:
-            return "Pflichtmodule Mathematik"
-        elif menu_type == ModuleNavigatorMenuType.WAHL_WIWI:
-            return "Wahlpflichtmodule Wirtschaftswissenschaften"
-        elif menu_type == ModuleNavigatorMenuType.WAHL_INFO:
-            return "Wahlpflichtmodule Informatik"
-        elif menu_type == ModuleNavigatorMenuType.WAHL_WINFO:
-            return "Wahlpflichtmodule Wirtschaftsinformatik"
-
-        return None
-    except:
+        menu_type_enum = ModuleNavigatorMenuType(menu_type)
+        return _MENU_TYPE_TO_CATEGORY_NAME.get(menu_type_enum)
+    except ValueError:
         return None
 
 
@@ -76,13 +71,31 @@ def load_menu_config() -> list[ModuleNavigatorMenuConfig]:
 
 def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, message_id: int):
     """Updates a specific config in the flattened list and saves."""
-    ModuleNavigatorMenuConfig.delete().where(
-        (ModuleNavigatorMenuConfig.menu_type == menu_type) &
-        (ModuleNavigatorMenuConfig.id == menu_channel_id) &
-        (ModuleNavigatorMenuConfig.guild_id == guild_id)
+    ModuleNavigatorMenuConfig.replace(
+        guild_id=guild_id,
+        channel_id=menu_channel_id,
+        message_id=message_id,
+        menu_type=menu_type
     ).execute()
-    ModuleNavigatorMenuConfig.create(guild_id=guild_id, id=menu_channel_id,
-                                     message_id=message_id, menu_type=menu_type)
+
+
+
+MENU_TYPE_CHOICES = [
+    app_commands.Choice(
+        name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-winfo"),
+    app_commands.Choice(
+        name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
+    app_commands.Choice(
+        name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-wiwi"),
+    app_commands.Choice(
+        name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
+    app_commands.Choice(
+        name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
+    app_commands.Choice(
+        name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
+    app_commands.Choice(
+        name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
+]
 
 
 @app_commands.guild_only()
@@ -95,7 +108,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         self.menu_hashes = {}
 
         # We still keep a runtime dict for O(1) access during the loop.
-        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type): cfg for cfg in load_menu_config()}
+        self.menus = {(cfg.guild_id, cfg.channel_id, cfg.menu_type): cfg for cfg in load_menu_config()}
         self.update.start()
 
     def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleNavigatorModuleItem]):
@@ -109,22 +122,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             ModuleNavigatorModuleItem.bulk_create(new_modules)
 
     @app_commands.command(name="add-custom-item", description="Fügt einen benutzerdefinierten Eintrag zu einem Menü hinzu.")
-    @app_commands.choices(menu_type=[
-        app_commands.Choice(
-            name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-winfo"),
-        app_commands.Choice(
-            name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
-        app_commands.Choice(
-            name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-wiwi"),
-        app_commands.Choice(
-            name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
-        app_commands.Choice(
-            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
-        app_commands.Choice(
-            name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
-        app_commands.Choice(
-            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
-    ])
+    @app_commands.choices(menu_type=MENU_TYPE_CHOICES)
     @app_commands.choices(link_type=[
         app_commands.Choice(
             name="URL", value=ModuleNavigatorMenuItemLinkType.URL.value),
@@ -150,22 +148,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         await interaction.response.send_message("Benutzerdefinierter Eintrag hinzugefügt!", ephemeral=True)
 
     @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal.")
-    @app_commands.choices(menu_type=[
-        app_commands.Choice(
-            name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-winfo"),
-        app_commands.Choice(
-            name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
-        app_commands.Choice(
-            name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-wiwi"),
-        app_commands.Choice(
-            name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
-        app_commands.Choice(
-            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
-        app_commands.Choice(
-            name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
-        app_commands.Choice(
-            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
-    ])
+    @app_commands.choices(menu_type=MENU_TYPE_CHOICES)
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         parent_category_name = get_parent_category_name(menu_type.value)
         if not parent_category_name:
@@ -197,11 +180,14 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                     await msg.delete()
 
                     ModuleNavigatorMenuConfig.delete().where((ModuleNavigatorMenuConfig.guild_id == k[0]) & (
-                        ModuleNavigatorMenuConfig.id == k[1]) & (ModuleNavigatorMenuConfig.menu_type == k[2])).execute()
+                        ModuleNavigatorMenuConfig.channel_id == k[1]) & (ModuleNavigatorMenuConfig.menu_type == k[2])).execute()
                     ModuleNavigatorModuleItem.delete().where((ModuleNavigatorModuleItem.guild_id == k[0]) & (
                         ModuleNavigatorModuleItem.menu_channel_id == k[1]) & (ModuleNavigatorModuleItem.menu_type == k[2])).execute()
-                except Exception:
-                    pass
+                except discord.NotFound:
+                    self.logger.warning(f"Could not find message for menu {k} to delete. It might have been deleted manually.")
+                except discord.HTTPException as e:
+                    self.logger.error(f"Failed to delete old menu message for {k}: {e}")
+
 
         # Send New Menu
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
@@ -219,27 +205,12 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
         # Refresh local cache
         self.menus[menu_key] = ModuleNavigatorMenuConfig(
-            guild_id=interaction.guild.id, menu_channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
+            guild_id=interaction.guild.id, channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
 
         await interaction.response.send_message("Menü erstellt!", ephemeral=True)
 
     @app_commands.command(name="remove-custom-item", description="Entfernt einen benutzerdefinierten Eintrag aus einem Menü.")
-    @app_commands.choices(menu_type=[
-        app_commands.Choice(
-            name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-winfo"),
-        app_commands.Choice(
-            name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
-        app_commands.Choice(
-            name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-wiwi"),
-        app_commands.Choice(
-            name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
-        app_commands.Choice(
-            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
-        app_commands.Choice(
-            name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
-        app_commands.Choice(
-            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
-    ])
+    @app_commands.choices(menu_type=MENU_TYPE_CHOICES)
     async def cmd_remove_custom_item(self, interaction: Interaction, menu_type: app_commands.Choice[str], label: str):
         deleted_count = ModuleNavigatorCustomMenuItem.delete().where(
             (ModuleNavigatorCustomMenuItem.guild_id == interaction.guild.id) &
@@ -256,6 +227,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                 await self._update_menu(menu_key, menu_config)
 
         await interaction.response.send_message("Benutzerdefinierter Eintrag entfernt!", ephemeral=True)
+
 
     @tasks.loop(minutes=5)
     async def update(self):
@@ -293,13 +265,13 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             return
 
         try:
-            channel = self.bot.get_channel(menu_config.id)
+            channel = self.bot.get_channel(menu_config.channel_id)
             if not channel:
                 try:
-                    channel = await self.bot.fetch_channel(menu_config.id)
+                    channel = await self.bot.fetch_channel(menu_config.channel_id)
                 except discord.NotFound:
                     self.logger.warning(
-                        f"Kanal {menu_config.id} für Menü {menu_type} nicht gefunden. Überspringe...")
+                        f"Channel {menu_config.channel_id} for menu {menu_type} not found. Skipping...")
                     return
 
             message = await channel.fetch_message(menu_config.message_id)
@@ -308,8 +280,11 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                 title=title, modules=live_data, menu_key=menu_key_str, page=0)
             await message.edit(view=view)
             self.menu_hashes[menu_key] = new_hash
-        except Exception as e:
-            self.logger.error(f"Loop error for {menu_type}: {e}")
+        except discord.NotFound:
+            self.logger.warning(
+                f"Message {menu_config.message_id} for menu {menu_type} not found. Skipping...")
+        except discord.HTTPException as e:
+            self.logger.error(f"Failed to update menu {menu_type}: {e}")
 
     @update.before_loop
     async def before_updater(self):
@@ -338,7 +313,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                 module_number, "") if char.isascii()).strip()
 
             # Skip categories that don't have any channels, as they likely aren't actual modules
-            if len(category.channels) == 0:
+            if not category.channels:
                 continue
 
             # Try to find a channel in this category, or fallback to the first public channel if it doesn't exist
@@ -382,47 +357,48 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
     def get_module_categories_of_parent_category(self,
                                                  categories: list[discord.CategoryChannel],
-                                                 parent_category: str) -> list[discord.CategoryChannel]:
-
-        if not categories:
+                                                 parent_category_name_query: str) -> list[discord.CategoryChannel]:
+        """
+        Finds a slice of categories that logically fall under a 'parent' category.
+        This logic assumes that channels are visually grouped under a non-functional
+        category channel that acts as a header. The slice starts after the parent
+        and ends when a category is found that doesn't look like a module category
+        (i.e., its name doesn't start with a number).
+        """
+        if not categories or not parent_category_name_query:
             return []
-
-        if not parent_category:
-            return categories
 
         start_index = -1
         end_index = -1
 
-        for i in range(len(categories)):
-            category = categories[i]
-
-            category_name = category.name.lower().strip()
-
-            if start_index > -1:
-                starts_as_number = not re.match(r'^\d', category_name)
-                if starts_as_number:
-                    end_index = i
-                    break
-
-            if start_index == -1 and parent_category in category_name:
+        # Find the index of the parent category, which marks the start of our slice.
+        for i, category in enumerate(categories):
+            if parent_category_name_query in category.name.lower().strip():
                 start_index = i
-                continue
-
-        test_channels = categories
-
-        if start_index != -1 and start_index + 1 < len(categories):
-            start_index += 1
-
-        if start_index == -1 and end_index == -1:
+                break
+        
+        # If the parent category wasn't found, there's nothing to do.
+        if start_index == -1:
             return []
-        elif start_index == -1:
-            test_channels = categories[:end_index]
-            return test_channels
-        elif end_index == -1:
-            test_channels = categories[start_index:]
-            return test_channels
 
-        return categories[start_index:end_index]
+        # Starting from the parent, find where the module category list ends.
+        # We assume it ends when we hit a category that doesn't start with a number.
+        for i in range(start_index + 1, len(categories)):
+            category_name = categories[i].name.lower().strip()
+            # This regex checks if the category name does NOT start with a digit.
+            if not re.match(r'^\d', category_name):
+                end_index = i
+                break
+        
+        # The slice of module categories is from after the parent to the end marker.
+        slice_start = start_index + 1
+        
+        if end_index != -1:
+            return categories[slice_start:end_index]
+        else:
+            # If no end marker was found, assume all subsequent channels are part of the group.
+            return categories[slice_start:]
+
 
     def filter_public_categories_and_channels(self, categories: list[discord.CategoryChannel]) -> list[discord.CategoryChannel]:
         """

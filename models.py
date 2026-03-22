@@ -356,12 +356,12 @@ class ModuleNavigatorMenuType(StrEnum):
 
 class ModuleNavigatorMenuConfig(BaseModel):
     guild_id = IntegerField()
-    id = IntegerField()
+    channel_id = IntegerField()
     message_id = IntegerField()
     menu_type = CharField()
 
     class Meta:
-        primary_key = CompositeKey('guild_id', 'id', 'menu_type')
+        primary_key = CompositeKey('guild_id', 'channel_id', 'menu_type')
 
 
 class ModuleNavigatorModuleItem(BaseModel):
