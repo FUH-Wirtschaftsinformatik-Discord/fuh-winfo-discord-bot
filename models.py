@@ -343,8 +343,8 @@ class SemesterStatistics:
     insufficient: List
     no_statistics: List
 
-    
-class ModuleMenuType(StrEnum):
+
+class ModuleNavigatorMenuType(StrEnum):
     PFLICHT_WIWI = "pflicht-wiwi"
     PFLICHT_INFO = "pflicht-info"
     PFLICHT_WINFO = "pflicht-winfo"
@@ -353,7 +353,8 @@ class ModuleMenuType(StrEnum):
     WAHL_WIWI = "wahl-wiwi"
     WAHL_WINFO = "wahl-winfo"
 
-class MenuConfig(BaseModel):
+
+class ModuleNavigatorMenuConfig(BaseModel):
     guild_id = IntegerField()
     id = IntegerField()
     message_id = IntegerField()
@@ -363,7 +364,7 @@ class MenuConfig(BaseModel):
         primary_key = CompositeKey('guild_id', 'id', 'menu_type')
 
 
-class ModuleItem(BaseModel):
+class ModuleNavigatorModuleItem(BaseModel):
     guild_id = IntegerField(null=True)
     menu_channel_id = IntegerField(null=True)
     menu_type = CharField(null=True)
@@ -372,18 +373,18 @@ class ModuleItem(BaseModel):
     module_channel_id = IntegerField(null=True)
 
 
-class ItemType(StrEnum):
+class ModuleNavigatorMenuItemLinkType(StrEnum):
     URL = "url"
     CHANNEL = "channel"
     POST = "post"
 
 
-class CustomMenuItem(BaseModel):
+class ModuleNavigatorCustomMenuItem(BaseModel):
     guild_id = IntegerField()
     menu_channel_id = IntegerField()
     menu_type = CharField()
     label = CharField()
-    item_type = CharField()
+    link_type = CharField()
     value = CharField()
 
     class Meta:
@@ -394,4 +395,4 @@ class CustomMenuItem(BaseModel):
 # Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage, MenuConfig, ModuleItem, CustomMenuItem], safe=True)
+     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage, ModuleNavigatorMenuConfig, ModuleNavigatorModuleItem, ModuleNavigatorCustomMenuItem], safe=True)

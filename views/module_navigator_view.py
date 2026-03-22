@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 import discord
-from models import CustomMenuItem, ItemType, ModuleItem
+from models import ModuleNavigatorCustomMenuItem, ModuleNavigatorMenuItemLinkType, ModuleNavigatorModuleItem
 
 
 @dataclass
@@ -9,12 +9,12 @@ class DisplayableMenuItem:
     label: str
     value: str
     type: str
-    item: ModuleItem | CustomMenuItem
+    item: ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem
 
 
 class ModuleNavigatorView(discord.ui.View):
 
-    def __init__(self, title, modules: list[ModuleItem | CustomMenuItem], menu_key: str, page=0):
+    def __init__(self, title, modules: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem], menu_key: str, page=0):
         super().__init__(timeout=None)
 
         self.title = title
@@ -24,18 +24,18 @@ class ModuleNavigatorView(discord.ui.View):
 
         displayable_items = []
         for m in modules:
-            if isinstance(m, ModuleItem):
+            if isinstance(m, ModuleNavigatorModuleItem):
                 displayable_items.append(DisplayableMenuItem(
                     label=f"{m.module_number} – {m.description[:40]}",
                     value=str(m.module_number),
                     type='module',
                     item=m
                 ))
-            elif isinstance(m, CustomMenuItem):
+            elif isinstance(m, ModuleNavigatorCustomMenuItem):
                 displayable_items.append(DisplayableMenuItem(
                     label=m.label,
                     value=m.value,
-                    type=m.item_type,
+                    type=m.link_type,
                     item=m
                 ))
 
@@ -105,15 +105,15 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
                 f"🔗 **Modul: {selected_item.label}**\nKlicke auf die Schaltfläche um zum Kanal zu gelangen: ➡️{channel.mention}",
                 ephemeral=True
             )
-        elif selected_item.type == ItemType.URL:
+        elif selected_item.type == ModuleNavigatorMenuItemLinkType.URL:
             await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{selected_item.value}", ephemeral=True)
-        elif selected_item.type == ItemType.CHANNEL:
+        elif selected_item.type == ModuleNavigatorMenuItemLinkType.CHANNEL:
             channel = interaction.guild.get_channel(int(selected_item.value))
             if not channel:
                 await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
                 return
             await interaction.response.send_message(f"🔗 **{selected_item.label}**\n➡️{channel.mention}", ephemeral=True)
-        elif selected_item.type == ItemType.POST:
+        elif selected_item.type == ModuleNavigatorMenuItemLinkType.POST:
             channel_id, message_id = selected_item.value.split('/')
             channel = interaction.guild.get_channel(int(channel_id))
             if not channel:

@@ -6,7 +6,7 @@ from discord import CategoryChannel, app_commands, Interaction
 import discord
 from discord.ext import commands
 
-from models import CustomMenuItem, ItemType, MenuConfig, ModuleItem, ModuleMenuType
+from models import ModuleNavigatorCustomMenuItem, ModuleNavigatorMenuItemLinkType, ModuleNavigatorMenuConfig, ModuleNavigatorModuleItem, ModuleNavigatorMenuType
 from views.module_navigator_view import ModuleNavigatorView
 
 import hashlib
@@ -18,21 +18,21 @@ from playhouse.shortcuts import model_to_dict
 def get_parent_category_name(menu_type: str) -> str | None:
 
     try:
-        menu_type = ModuleMenuType(menu_type)
+        menu_type = ModuleNavigatorMenuType(menu_type)
 
-        if menu_type == ModuleMenuType.PFLICHT_WIWI:
+        if menu_type == ModuleNavigatorMenuType.PFLICHT_WIWI:
             return "Pflichtmodule Wirtschaftswissenschaften"
-        elif menu_type == ModuleMenuType.PFLICHT_INFO:
+        elif menu_type == ModuleNavigatorMenuType.PFLICHT_INFO:
             return "Pflichtmodule Informatik"
-        elif menu_type == ModuleMenuType.PFLICHT_WINFO:
+        elif menu_type == ModuleNavigatorMenuType.PFLICHT_WINFO:
             return "Pflichtmodule Wirtschaftsinformatik"
-        elif menu_type == ModuleMenuType.PFLICHT_MATHE:
+        elif menu_type == ModuleNavigatorMenuType.PFLICHT_MATHE:
             return "Pflichtmodule Mathematik"
-        elif menu_type == ModuleMenuType.WAHL_WIWI:
+        elif menu_type == ModuleNavigatorMenuType.WAHL_WIWI:
             return "Wahlpflichtmodule Wirtschaftswissenschaften"
-        elif menu_type == ModuleMenuType.WAHL_INFO:
+        elif menu_type == ModuleNavigatorMenuType.WAHL_INFO:
             return "Wahlpflichtmodule Informatik"
-        elif menu_type == ModuleMenuType.WAHL_WINFO:
+        elif menu_type == ModuleNavigatorMenuType.WAHL_WINFO:
             return "Wahlpflichtmodule Wirtschaftsinformatik"
 
         return None
@@ -40,7 +40,7 @@ def get_parent_category_name(menu_type: str) -> str | None:
         return None
 
 
-def generate_data_hash(modules_list: list[ModuleItem | CustomMenuItem]):
+def generate_data_hash(modules_list: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem]):
     """Converts the modules list into a unique hash string."""
     dict_list = []
     for item in modules_list:
@@ -55,34 +55,34 @@ def convert_to_clean_string(input_str: str):
     return input_str.lower().strip()
 
 
-def fetch_modules_from_db() -> list[ModuleItem]:
+def fetch_modules_from_db() -> list[ModuleNavigatorModuleItem]:
     """Loads modules as a flattened list."""
-    return list(ModuleItem.select())
+    return list(ModuleNavigatorModuleItem.select())
 
 
-def fetch_custom_menu_items_from_db(guild_id: int, menu_channel_id: int, menu_type: str) -> list[CustomMenuItem]:
+def fetch_custom_menu_items_from_db(guild_id: int, menu_channel_id: int, menu_type: str) -> list[ModuleNavigatorCustomMenuItem]:
     """Loads custom menu items as a flattened list."""
-    return list(CustomMenuItem.select().where(
-        (CustomMenuItem.guild_id == guild_id) &
-        (CustomMenuItem.menu_channel_id == menu_channel_id) &
-        (CustomMenuItem.menu_type == menu_type)
+    return list(ModuleNavigatorCustomMenuItem.select().where(
+        (ModuleNavigatorCustomMenuItem.guild_id == guild_id) &
+        (ModuleNavigatorCustomMenuItem.menu_channel_id == menu_channel_id) &
+        (ModuleNavigatorCustomMenuItem.menu_type == menu_type)
     ))
 
 
-def load_menu_config() -> list[MenuConfig]:
+def load_menu_config() -> list[ModuleNavigatorMenuConfig]:
     """Loads menu configurations as a flattened list."""
-    return list(MenuConfig.select())
+    return list(ModuleNavigatorMenuConfig.select())
 
 
 def save_menu_config(menu_type: str, guild_id: int, menu_channel_id: int, message_id: int):
     """Updates a specific config in the flattened list and saves."""
-    MenuConfig.delete().where(
-        (MenuConfig.menu_type == menu_type) &
-        (MenuConfig.id == menu_channel_id) &
-        (MenuConfig.guild_id == guild_id)
+    ModuleNavigatorMenuConfig.delete().where(
+        (ModuleNavigatorMenuConfig.menu_type == menu_type) &
+        (ModuleNavigatorMenuConfig.id == menu_channel_id) &
+        (ModuleNavigatorMenuConfig.guild_id == guild_id)
     ).execute()
-    MenuConfig.create(guild_id=guild_id, id=menu_channel_id,
-                      message_id=message_id, menu_type=menu_type)
+    ModuleNavigatorMenuConfig.create(guild_id=guild_id, id=menu_channel_id,
+                                     message_id=message_id, menu_type=menu_type)
 
 
 @app_commands.guild_only()
@@ -95,18 +95,18 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         self.menu_hashes = {}
 
         # We still keep a runtime dict for O(1) access during the loop.
-        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type)                      : cfg for cfg in load_menu_config()}
+        self.menus = {(cfg.guild_id, cfg.id, cfg.menu_type): cfg for cfg in load_menu_config()}
         self.update.start()
 
-    def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleItem]):
+    def save_modules_to_db_by_key(self, guild_id: int, menu_channel_id: int, menu_type: str, new_modules: list[ModuleNavigatorModuleItem]):
         """Helper to update subset of modules in the flat list."""
-        with ModuleItem._meta.database.atomic():
-            ModuleItem.delete().where(
-                (ModuleItem.guild_id == guild_id) &
-                (ModuleItem.menu_channel_id == menu_channel_id) &
-                (ModuleItem.menu_type == menu_type)
+        with ModuleNavigatorModuleItem._meta.database.atomic():
+            ModuleNavigatorModuleItem.delete().where(
+                (ModuleNavigatorModuleItem.guild_id == guild_id) &
+                (ModuleNavigatorModuleItem.menu_channel_id == menu_channel_id) &
+                (ModuleNavigatorModuleItem.menu_type == menu_type)
             ).execute()
-            ModuleItem.bulk_create(new_modules)
+            ModuleNavigatorModuleItem.bulk_create(new_modules)
 
     @app_commands.command(name="add-custom-item", description="Fügt einen benutzerdefinierten Eintrag zu einem Menü hinzu.")
     @app_commands.choices(menu_type=[
@@ -125,18 +125,21 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         app_commands.Choice(
             name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
     ])
-    @app_commands.choices(item_type=[
-        app_commands.Choice(name="URL", value=ItemType.URL.value),
-        app_commands.Choice(name="Channel", value=ItemType.CHANNEL.value),
-        app_commands.Choice(name="Post", value=ItemType.POST.value),
+    @app_commands.choices(link_type=[
+        app_commands.Choice(
+            name="URL", value=ModuleNavigatorMenuItemLinkType.URL.value),
+        app_commands.Choice(
+            name="Channel", value=ModuleNavigatorMenuItemLinkType.CHANNEL.value),
+        app_commands.Choice(
+            name="Post", value=ModuleNavigatorMenuItemLinkType.POST.value),
     ])
-    async def cmd_add_custom_item(self, interaction: Interaction, menu_type: app_commands.Choice[str], label: str, item_type: app_commands.Choice[str], value: str):
-        CustomMenuItem.create(
+    async def cmd_add_custom_item(self, interaction: Interaction, menu_type: app_commands.Choice[str], label: str, link_type: app_commands.Choice[str], value: str):
+        ModuleNavigatorCustomMenuItem.create(
             guild_id=interaction.guild.id,
             menu_channel_id=interaction.channel.id,
             menu_type=menu_type.value,
             label=label,
-            item_type=item_type.value,
+            link_type=link_type.value,
             value=value
         )
 
@@ -168,7 +171,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         if not parent_category_name:
             return await interaction.response.send_message("Ungültiger Typ.", ephemeral=True)
 
-        menu_items: list[ModuleItem | CustomMenuItem] = self.get_module_categories(
+        menu_items: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = self.get_module_categories(
             interaction.guild.categories,
             convert_to_clean_string(parent_category_name)
         )
@@ -181,7 +184,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             return await interaction.response.send_message("Keine Kategorien gefunden.", ephemeral=True)
 
         for item in menu_items:
-            if isinstance(item, ModuleItem):
+            if isinstance(item, ModuleNavigatorModuleItem):
                 item.guild_id = interaction.guild.id
                 item.menu_channel_id = interaction.channel.id
                 item.menu_type = menu_type.value
@@ -193,10 +196,10 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                     msg = await interaction.channel.fetch_message(existing.message_id)
                     await msg.delete()
 
-                    MenuConfig.delete().where((MenuConfig.guild_id == k[0]) & (
-                        MenuConfig.id == k[1]) & (MenuConfig.menu_type == k[2])).execute()
-                    ModuleItem.delete().where((ModuleItem.guild_id == k[0]) & (
-                        ModuleItem.menu_channel_id == k[1]) & (ModuleItem.menu_type == k[2])).execute()
+                    ModuleNavigatorMenuConfig.delete().where((ModuleNavigatorMenuConfig.guild_id == k[0]) & (
+                        ModuleNavigatorMenuConfig.id == k[1]) & (ModuleNavigatorMenuConfig.menu_type == k[2])).execute()
+                    ModuleNavigatorModuleItem.delete().where((ModuleNavigatorModuleItem.guild_id == k[0]) & (
+                        ModuleNavigatorModuleItem.menu_channel_id == k[1]) & (ModuleNavigatorModuleItem.menu_type == k[2])).execute()
                 except Exception:
                     pass
 
@@ -215,11 +218,10 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                          interaction.channel.id, message.id)
 
         # Refresh local cache
-        self.menus[menu_key] = MenuConfig(
+        self.menus[menu_key] = ModuleNavigatorMenuConfig(
             guild_id=interaction.guild.id, menu_channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
 
         await interaction.response.send_message("Menü erstellt!", ephemeral=True)
-
 
     @app_commands.command(name="remove-custom-item", description="Entfernt einen benutzerdefinierten Eintrag aus einem Menü.")
     @app_commands.choices(menu_type=[
@@ -239,11 +241,11 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
     ])
     async def cmd_remove_custom_item(self, interaction: Interaction, menu_type: app_commands.Choice[str], label: str):
-        deleted_count = CustomMenuItem.delete().where(
-            (CustomMenuItem.guild_id == interaction.guild.id) &
-            (CustomMenuItem.menu_channel_id == interaction.channel.id) &
-            (CustomMenuItem.menu_type == menu_type.value) &
-            (CustomMenuItem.label == label)
+        deleted_count = ModuleNavigatorCustomMenuItem.delete().where(
+            (ModuleNavigatorCustomMenuItem.guild_id == interaction.guild.id) &
+            (ModuleNavigatorCustomMenuItem.menu_channel_id == interaction.channel.id) &
+            (ModuleNavigatorCustomMenuItem.menu_type == menu_type.value) &
+            (ModuleNavigatorCustomMenuItem.label == label)
         ).execute()
 
         if deleted_count == 0:
@@ -267,7 +269,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             return
 
         title = get_parent_category_name(menu_type)
-        live_data: list[ModuleItem | CustomMenuItem] = self.get_module_categories(
+        live_data: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = self.get_module_categories(
             guild.categories, convert_to_clean_string(title))
 
         custom_items = fetch_custom_menu_items_from_db(
@@ -275,7 +277,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         live_data.extend(custom_items)
 
         for item in live_data:
-            if isinstance(item, ModuleItem):
+            if isinstance(item, ModuleNavigatorModuleItem):
                 item.guild_id = guild_id
                 item.menu_channel_id = menu_channel_id
                 item.menu_type = menu_type
@@ -283,7 +285,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         new_hash = generate_data_hash(live_data)
 
         module_items = [
-            item for item in live_data if isinstance(item, ModuleItem)]
+            item for item in live_data if isinstance(item, ModuleNavigatorModuleItem)]
         self.save_modules_to_db_by_key(
             guild_id, menu_channel_id, menu_type, module_items)
 
@@ -313,17 +315,16 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
     async def before_updater(self):
         await self.bot.wait_until_ready()
 
-
     def get_module_categories(self, all_categories: List[CategoryChannel],
                               parent_category: str,
-                              default_channel: str = "diskussion-und-infos") -> list[ModuleItem]:
+                              default_channel: str = "diskussion-und-infos") -> list[ModuleNavigatorModuleItem]:
         # First filter categories to those that are under the specified parent category
         all_module_categories = self.get_module_categories_of_parent_category(
             all_categories, parent_category)
         public_categories = self.filter_public_categories_and_channels(
             all_module_categories)
 
-        menu_items: list[ModuleItem] = []
+        menu_items: list[ModuleNavigatorModuleItem] = []
 
         for category in public_categories:
             # Extract the module number from the category name, if it exists
@@ -346,7 +347,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             if channel is None:
                 continue
 
-            module_item = ModuleItem(
+            module_item = ModuleNavigatorModuleItem(
                 module_channel_id=channel.id, description=module_name, module_number=module_number)
             menu_items.append(module_item)
 
