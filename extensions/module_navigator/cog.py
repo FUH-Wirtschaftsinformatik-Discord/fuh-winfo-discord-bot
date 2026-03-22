@@ -105,19 +105,25 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         if not parent_category_name:
             return await interaction.response.send_message("Ungültiger Menü-Typ.", ephemeral=True)
 
-        menu_items: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = helpers.get_module_categories(
+        # --- Item Gathering and Sorting ---
+        # 1. Get module items, which are pre-sorted numerically by the helper function.
+        module_items = helpers.get_module_categories(
             interaction.guild.categories,
             helpers.convert_to_clean_string(parent_category_name)
         )
 
+        # 2. Get custom items and sort them alphabetically by label.
         custom_items = db.fetch_custom_menu_items_from_db(
             interaction.guild.id, interaction.channel.id, menu_type.value)
-        menu_items.extend(custom_items)
+        custom_items.sort(key=lambda item: item.label)
 
-        if not menu_items:
+        # 3. Combine the sorted lists, with modules appearing first.
+        all_items: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = module_items + custom_items
+
+        if not all_items:
             return await interaction.response.send_message("Keine passenden Modul-Kanäle für dieses Menü gefunden.", ephemeral=True)
 
-        for item in menu_items:
+        for item in all_items:
             if isinstance(item, ModuleNavigatorModuleItem):
                 item.guild_id = interaction.guild.id
                 item.menu_channel_id = interaction.channel.id
@@ -145,7 +151,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         # Post the new menu message with the view.
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
         view = ModuleNavigatorView(
-            parent_category_name, menu_items, menu_key_str, page=0)
+            parent_category_name, all_items, menu_key_str, page=0)
         msg_content = f"Kategorie: 📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
@@ -155,7 +161,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
         db.save_menu_config(new_key.menu_type, new_key.guild_id,
                             new_key.channel_id, message.id)
-        self.menu_hashes[new_key] = helpers.generate_data_hash(menu_items)
+        self.menu_hashes[new_key] = helpers.generate_data_hash(all_items)
         self.menus[new_key] = ModuleNavigatorMenuConfig(
             guild_id=new_key.guild_id, channel_id=new_key.channel_id, message_id=message.id,
             menu_type=new_key.menu_type)
@@ -206,23 +212,31 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
 
         title = helpers.get_parent_category_name(menu_config.menu_type)
-        live_data: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = helpers.get_module_categories(
+        
+        # --- Item Gathering and Sorting ---
+        # 1. Get module items, which are pre-sorted numerically by the helper function.
+        module_items = helpers.get_module_categories(
             guild.categories, helpers.convert_to_clean_string(title))
 
+        # 2. Get custom items and sort them alphabetically by label.
         custom_items = db.fetch_custom_menu_items_from_db(
             menu_config.guild_id, menu_config.channel_id, menu_config.menu_type)
-        live_data.extend(custom_items)
+        custom_items.sort(key=lambda item: item.label)
 
-        new_hash = helpers.generate_data_hash(live_data)
+        # 3. Combine the sorted lists, with modules appearing first.
+        all_items: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = module_items + custom_items
 
-        module_items = [item for item in live_data if isinstance(
+        new_hash = helpers.generate_data_hash(all_items)
+
+        # Persist the latest module items to the database.
+        db_module_items = [item for item in all_items if isinstance(
             item, ModuleNavigatorModuleItem)]
-        for item in module_items:
+        for item in db_module_items:
             item.guild_id = menu_config.guild_id
             item.menu_channel_id = menu_config.channel_id
             item.menu_type = menu_config.menu_type
         db.save_modules_to_db(
-            menu_config.guild_id, menu_config.channel_id, menu_config.menu_type, module_items)
+            menu_config.guild_id, menu_config.channel_id, menu_config.menu_type, db_module_items)
 
         if self.menu_hashes.get(menu_key) == new_hash:
             return
@@ -236,7 +250,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             message = await channel.fetch_message(menu_config.message_id)
             menu_key_str = f"{menu_config.guild_id}:{menu_config.channel_id}:{menu_config.menu_type}"
             view = ModuleNavigatorView(
-                title=title, modules=live_data, menu_key=menu_key_str, page=0)
+                title=title, modules=all_items, menu_key=menu_key_str, page=0)
             await message.edit(view=view)
 
             self.menu_hashes[menu_key] = new_hash

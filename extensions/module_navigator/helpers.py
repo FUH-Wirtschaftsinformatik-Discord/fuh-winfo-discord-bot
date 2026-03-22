@@ -80,7 +80,7 @@ def get_module_categories(all_categories: List[CategoryChannel],
     """
     Scans a list of guild categories to find module channels that logically belong
     to a specific parent category. It extracts module information from their names
-    and returns them as a list of ModuleNavigatorModuleItem objects.
+    and returns them as a sorted list of ModuleNavigatorModuleItem objects.
 
     Args:
         all_categories: A list of all CategoryChannel objects in the guild.
@@ -88,7 +88,7 @@ def get_module_categories(all_categories: List[CategoryChannel],
         default_channel: The preferred name of the channel to link to within a module category.
 
     Returns:
-        A list of ModuleNavigatorModuleItem objects representing the found module channels.
+        A sorted list of ModuleNavigatorModuleItem objects representing the found module channels.
     """
     # 1. Find the group of categories that fall under the parent category header.
     module_category_group = get_module_categories_of_parent_category(
@@ -127,6 +127,16 @@ def get_module_categories(all_categories: List[CategoryChannel],
             module_channel_id=target_channel.id, description=module_name, module_number=module_number)
         menu_items.append(module_item)
 
+    # 6. Sort the list of module items numerically by module number.
+    def sort_key(item: ModuleNavigatorModuleItem):
+        try:
+            # Cast module number to int for correct numerical sorting.
+            return int(item.module_number)
+        except (ValueError, TypeError):
+            # Place items without a valid number at the end of the list.
+            return float('inf')
+
+    menu_items.sort(key=sort_key)
     return menu_items
 
 
