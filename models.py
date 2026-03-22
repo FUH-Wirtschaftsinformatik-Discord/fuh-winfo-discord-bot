@@ -372,7 +372,26 @@ class ModuleItem(BaseModel):
     module_channel_id = IntegerField(null=True)
 
 
+class ItemType(StrEnum):
+    URL = "url"
+    CHANNEL = "channel"
+    POST = "post"
+
+
+class CustomMenuItem(BaseModel):
+    guild_id = IntegerField()
+    menu_channel_id = IntegerField()
+    menu_type = CharField()
+    label = CharField()
+    item_type = CharField()
+    value = CharField()
+
+    class Meta:
+        primary_key = CompositeKey(
+            'guild_id', 'menu_channel_id', 'menu_type', 'label')
+
+
 # Create all tables
 db.create_tables(
     [Settings, LinkCategory, Link, NewsFeed, NewsArticle, Poll, PollChoice, PollParticipant, Command, CommandText, Appointment,
-     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage, MenuConfig, ModuleItem], safe=True)
+     Attendee, Course, UniversityModule, Event, Support, Exam, Download, Contact, ModuleGradeStatistics, GradeStatisticsImage, MenuConfig, ModuleItem, CustomMenuItem], safe=True)

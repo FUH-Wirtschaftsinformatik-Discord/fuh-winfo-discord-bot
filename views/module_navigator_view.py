@@ -1,13 +1,20 @@
 import re
-
+from dataclasses import dataclass
 import discord
+from models import CustomMenuItem, ItemType, ModuleItem
 
-from models import ModuleItem
+
+@dataclass
+class DisplayableMenuItem:
+    label: str
+    value: str
+    type: str
+    item: ModuleItem | CustomMenuItem
 
 
 class ModuleNavigatorView(discord.ui.View):
 
-    def __init__(self, title, modules: list[ModuleItem], menu_key: str, page=0):
+    def __init__(self, title, modules: list[ModuleItem | CustomMenuItem], menu_key: str, page=0):
         super().__init__(timeout=None)
 
         self.title = title
@@ -15,45 +22,62 @@ class ModuleNavigatorView(discord.ui.View):
         self.page = page
         self.menu_key = menu_key
 
+        displayable_items = []
+        for m in modules:
+            if isinstance(m, ModuleItem):
+                displayable_items.append(DisplayableMenuItem(
+                    label=f"{m.module_number} – {m.description[:40]}",
+                    value=str(m.module_number),
+                    type='module',
+                    item=m
+                ))
+            elif isinstance(m, CustomMenuItem):
+                displayable_items.append(DisplayableMenuItem(
+                    label=m.label,
+                    value=m.value,
+                    type=m.item_type,
+                    item=m
+                ))
+
+        self.displayable_items = displayable_items
+
         # 1. Add the Select Menu
         self.add_item(ModuleNavigatorMenuSelect(
-            modules, page, title, self.menu_key))
+            self.displayable_items, page, title, self.menu_key))
 
         # 2. Previous Button
         prev_button = ModuleNavigatorMenuPreviousButton(self.menu_key)
         if page <= 0:
-            prev_button.disabled = True  # Gray it out on the first page
+            prev_button.disabled = True
         self.add_item(prev_button)
 
         # 3. Next Button
         next_button = ModuleNavigatorMenuNextButton(self.menu_key)
-        if (page + 1) * 25 >= len(modules):
-            next_button.disabled = True  # Gray it out on the last page
+        if (page + 1) * 25 >= len(self.displayable_items):
+            next_button.disabled = True
         self.add_item(next_button)
 
 
 class ModuleNavigatorMenuSelect(discord.ui.Select):
 
-    def __init__(self, modules: list[ModuleItem], page, title, menu_key: str):
-        self.modules = modules
+    def __init__(self, items: list[DisplayableMenuItem], page, title, menu_key: str):
+        self.items = items
         self.page = page
         self.title = title
         self.menu_key = menu_key
 
-        # execute pagination logic here to determine which modules to show on this page
         start = page * 25
         end = start + 25
-        page_items = modules[start:end]
+        page_items = items[start:end]
 
         options = [
             discord.SelectOption(
-                label=f"{m.module_number} – {m.description[:40]}",
-                value=m.module_number
+                label=item.label,
+                value=item.value
             )
-            for m in page_items
+            for item in page_items
         ]
 
-        # Fallback option so discord.py doesn't crash on an empty list during setup_hook
         if not options:
             options = [discord.SelectOption(label="Lädt...", value="loading")]
 
@@ -65,22 +89,41 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         try:
-            module = next(m for m in self.modules if str(
-                m.module_number) == self.values[0])
+            selected_item = next(
+                item for item in self.items if item.value == self.values[0])
         except StopIteration:
             await interaction.response.send_message("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
-        channel = interaction.guild.get_channel(module.module_channel_id)
-
-        if not channel:
-            await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
-            return
-
-        await interaction.response.send_message(
-            f"🔗 **Modul: {module.description[:40]} ({module.module_number})**\nKlicke auf die Schaltfläche um zum Kanal zu gelangen: ➡️{channel.mention}",
-            ephemeral=True
-        )
+        if selected_item.type == 'module':
+            channel = interaction.guild.get_channel(
+                selected_item.item.module_channel_id)
+            if not channel:
+                await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
+                return
+            await interaction.response.send_message(
+                f"🔗 **Modul: {selected_item.label}**\nKlicke auf die Schaltfläche um zum Kanal zu gelangen: ➡️{channel.mention}",
+                ephemeral=True
+            )
+        elif selected_item.type == ItemType.URL:
+            await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{selected_item.value}", ephemeral=True)
+        elif selected_item.type == ItemType.CHANNEL:
+            channel = interaction.guild.get_channel(int(selected_item.value))
+            if not channel:
+                await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
+                return
+            await interaction.response.send_message(f"🔗 **{selected_item.label}**\n➡️{channel.mention}", ephemeral=True)
+        elif selected_item.type == ItemType.POST:
+            channel_id, message_id = selected_item.value.split('/')
+            channel = interaction.guild.get_channel(int(channel_id))
+            if not channel:
+                await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
+                return
+            message = await channel.fetch_message(int(message_id))
+            if not message:
+                await interaction.response.send_message("Nachricht nicht gefunden.", ephemeral=True)
+                return
+            await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{message.jump_url}", ephemeral=True)
 
 
 class ModuleNavigatorMenuNextButton(discord.ui.Button):
