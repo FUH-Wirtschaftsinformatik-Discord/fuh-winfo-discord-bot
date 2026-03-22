@@ -139,6 +139,11 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             item_type=item_type.value,
             value=value
         )
+
+        for menu_key, menu_config in self.menus.items():
+            if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[2] == menu_type.value:
+                await self._update_menu(menu_key, menu_config)
+
         await interaction.response.send_message("Benutzerdefinierter Eintrag hinzugefügt!", ephemeral=True)
 
     @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal.")
@@ -215,60 +220,99 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
         await interaction.response.send_message("Menü erstellt!", ephemeral=True)
 
+
+    @app_commands.command(name="remove-custom-item", description="Entfernt einen benutzerdefinierten Eintrag aus einem Menü.")
+    @app_commands.choices(menu_type=[
+        app_commands.Choice(
+            name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-winfo"),
+        app_commands.Choice(
+            name="💻 Pflichtmodule Bereich Informatik", value="pflicht-info"),
+        app_commands.Choice(
+            name="📊 Pflichtmodule Bereich Wirtschaftswissenschaften", value="pflicht-wiwi"),
+        app_commands.Choice(
+            name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
+        app_commands.Choice(
+            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
+        app_commands.Choice(
+            name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
+        app_commands.Choice(
+            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-wiwi"),
+    ])
+    async def cmd_remove_custom_item(self, interaction: Interaction, menu_type: app_commands.Choice[str], label: str):
+        deleted_count = CustomMenuItem.delete().where(
+            (CustomMenuItem.guild_id == interaction.guild.id) &
+            (CustomMenuItem.menu_channel_id == interaction.channel.id) &
+            (CustomMenuItem.menu_type == menu_type.value) &
+            (CustomMenuItem.label == label)
+        ).execute()
+
+        if deleted_count == 0:
+            return await interaction.response.send_message("Benutzerdefinierter Eintrag nicht gefunden.", ephemeral=True)
+
+        for menu_key, menu_config in self.menus.items():
+            if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[2] == menu_type.value:
+                await self._update_menu(menu_key, menu_config)
+
+        await interaction.response.send_message("Benutzerdefinierter Eintrag entfernt!", ephemeral=True)
+
     @tasks.loop(minutes=5)
     async def update(self):
         for menu_key, menu_config in self.menus.items():
-            guild_id, menu_channel_id, menu_type = menu_key
-            guild = self.bot.get_guild(menu_config.guild_id)
-            if not guild:
-                continue
+            await self._update_menu(menu_key, menu_config)
 
-            title = get_parent_category_name(menu_type)
-            live_data: list[ModuleItem | CustomMenuItem] = self.get_module_categories(
-                guild.categories, convert_to_clean_string(title))
+    async def _update_menu(self, menu_key, menu_config):
+        guild_id, menu_channel_id, menu_type = menu_key
+        guild = self.bot.get_guild(menu_config.guild_id)
+        if not guild:
+            return
 
-            custom_items = fetch_custom_menu_items_from_db(
-                guild_id, menu_channel_id, menu_type)
-            live_data.extend(custom_items)
+        title = get_parent_category_name(menu_type)
+        live_data: list[ModuleItem | CustomMenuItem] = self.get_module_categories(
+            guild.categories, convert_to_clean_string(title))
 
-            for item in live_data:
-                if isinstance(item, ModuleItem):
-                    item.guild_id = guild_id
-                    item.menu_channel_id = menu_channel_id
-                    item.menu_type = menu_type
+        custom_items = fetch_custom_menu_items_from_db(
+            guild_id, menu_channel_id, menu_type)
+        live_data.extend(custom_items)
 
-            new_hash = generate_data_hash(live_data)
+        for item in live_data:
+            if isinstance(item, ModuleItem):
+                item.guild_id = guild_id
+                item.menu_channel_id = menu_channel_id
+                item.menu_type = menu_type
 
-            module_items = [
-                item for item in live_data if isinstance(item, ModuleItem)]
-            self.save_modules_to_db_by_key(
-                guild_id, menu_channel_id, menu_type, module_items)
+        new_hash = generate_data_hash(live_data)
 
-            if self.menu_hashes.get(menu_key) == new_hash:
-                continue
+        module_items = [
+            item for item in live_data if isinstance(item, ModuleItem)]
+        self.save_modules_to_db_by_key(
+            guild_id, menu_channel_id, menu_type, module_items)
 
-            try:
-                channel = self.bot.get_channel(menu_config.id)
-                if not channel:
-                    try:
-                        channel = await self.bot.fetch_channel(menu_config.id)
-                    except discord.NotFound:
-                        self.logger.warning(
-                            f"Kanal {menu_config.id} für Menü {menu_type} nicht gefunden. Überspringe...")
-                        continue
+        if self.menu_hashes.get(menu_key) == new_hash:
+            return
 
-                message = await channel.fetch_message(menu_config.message_id)
-                menu_key_str = f"{guild_id}:{menu_channel_id}:{menu_type}"
-                view = ModuleNavigatorView(
-                    title=title, modules=live_data, menu_key=menu_key_str, page=0)
-                await message.edit(view=view)
-                self.menu_hashes[menu_key] = new_hash
-            except Exception as e:
-                self.logger.error(f"Loop error for {menu_type}: {e}")
+        try:
+            channel = self.bot.get_channel(menu_config.id)
+            if not channel:
+                try:
+                    channel = await self.bot.fetch_channel(menu_config.id)
+                except discord.NotFound:
+                    self.logger.warning(
+                        f"Kanal {menu_config.id} für Menü {menu_type} nicht gefunden. Überspringe...")
+                    return
+
+            message = await channel.fetch_message(menu_config.message_id)
+            menu_key_str = f"{guild_id}:{menu_channel_id}:{menu_type}"
+            view = ModuleNavigatorView(
+                title=title, modules=live_data, menu_key=menu_key_str, page=0)
+            await message.edit(view=view)
+            self.menu_hashes[menu_key] = new_hash
+        except Exception as e:
+            self.logger.error(f"Loop error for {menu_type}: {e}")
 
     @update.before_loop
     async def before_updater(self):
         await self.bot.wait_until_ready()
+
 
     def get_module_categories(self, all_categories: List[CategoryChannel],
                               parent_category: str,
