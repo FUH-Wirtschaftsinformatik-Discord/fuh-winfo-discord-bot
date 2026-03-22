@@ -102,5 +102,6 @@ def delete_module_items(guild_id: int, menu_channel_id: int, menu_type: str):
         menu_channel_id: The ID of the channel containing the menu.
         menu_type: The type of the menu.
     """
-    ModuleNavigatorModuleItem.delete().where((ModuleNavigatorModuleItem.guild_id == guild_id) & (
-        ModuleNavigatorModuleItem.menu_channel_id == menu_channel_id) & (ModuleNavigatorModuleItem.menu_type == menu_type)).execute()
+    ModuleNavigatorModuleItem.delete().where((ModuleNavigatorModuleItem.guild_id == guild_id) &
+                                             (ModuleNavigatorModuleItem.menu_channel_id == menu_channel_id) & 
+                                             (ModuleNavigatorModuleItem.menu_type == menu_type)).execute()

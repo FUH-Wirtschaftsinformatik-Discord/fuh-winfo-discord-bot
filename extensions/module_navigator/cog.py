@@ -199,11 +199,11 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         guild = self.bot.get_guild(menu_config.guild_id)
         menu_key = MenuKey(menu_config.guild_id,
                            menu_config.channel_id, menu_config.menu_type)
-
         if not guild:
             self.logger.warning(
                 f"Guild {menu_config.guild_id} not found for menu {menu_key}, skipping update.")
             return
+
 
         title = helpers.get_parent_category_name(menu_config.menu_type)
         live_data: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = helpers.get_module_categories(

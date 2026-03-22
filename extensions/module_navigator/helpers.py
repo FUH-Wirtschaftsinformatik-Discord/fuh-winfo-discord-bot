@@ -50,15 +50,14 @@ def generate_data_hash(modules_list: list[ModuleNavigatorModuleItem | ModuleNavi
     Returns:
         A hexadecimal MD5 hash string.
     """
-    dict_list = []
-    for item in modules_list:
-        # Convert model object to dictionary, excluding the primary key 'id'
-        # to ensure the hash is based on content, not database state.
-        d = model_to_dict(item)
-        d.pop('id', None)
-        dict_list.append(d)
-    # Sort keys to ensure consistent JSON string representation.
-    data_string = json.dumps(dict_list, sort_keys=True)
+    instances = []
+    
+    for module in modules_list:
+        # Convert model object to dictionary, to ensure the hash is based on content
+        instance_dictionary = model_to_dict(module)       
+        instances.append(instance_dictionary)
+        
+    data_string = json.dumps(instances, sort_keys=True)
     return hashlib.md5(data_string.encode()).hexdigest()
 
 
@@ -235,6 +234,7 @@ def filter_public_categories_and_channels(categories: list[discord.CategoryChann
                 channel.permissions_for(everyone_role).view_channel
                 for channel in category.text_channels
             )
+            
             if has_public_channel:
                 public_categories.append(category)
     return public_categories
