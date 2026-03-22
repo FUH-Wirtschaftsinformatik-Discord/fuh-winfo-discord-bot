@@ -100,7 +100,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             ).execute()
             ModuleItem.bulk_create(new_modules)
 
-    @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal basierend auf den Kategorien in diesem Server.")
+    @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal.")
     @app_commands.choices(menu_type=[
         app_commands.Choice(
             name="📚 Pflichtmodule Bereich Wirtschaftsinformatik", value="pflicht-wiwi"),
@@ -111,11 +111,11 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         app_commands.Choice(
             name="📐 Pflichtmodule Bereich Mathematik", value="pflicht-mathe"),
         app_commands.Choice(
-            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-wiwi"),
+            name="📚 Wahlpflichtmodule Bereich Wirtschaftsinformatik", value="wahl-winfo"),
         app_commands.Choice(
             name="💻 Wahlpflichtmodule Bereich Informatik", value="wahl-info"),
         app_commands.Choice(
-            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value="wahl-winfo"),
+            name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value= "wahl-wiwi"),
     ])
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
         await interaction.response.defer()
