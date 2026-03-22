@@ -94,7 +94,7 @@ def get_module_categories(all_categories: List[CategoryChannel],
     # 1. Find the group of categories that fall under the parent category header.
     module_category_group = get_module_categories_of_parent_category(
         all_categories, parent_category)
-    
+
     # 2. Filter this group to only include categories visible to @everyone.
     public_categories = filter_public_categories_and_channels(
         module_category_group)
@@ -103,7 +103,8 @@ def get_module_categories(all_categories: List[CategoryChannel],
     for category in public_categories:
         # 3. For each public category, extract module details from its name.
         module_number_match = re.search(r'\d+', category.name)
-        module_number = module_number_match.group(0).strip() if module_number_match and module_number_match.group() else ""
+        module_number = module_number_match.group(0).strip(
+        ) if module_number_match and module_number_match.group() else ""
 
         # Remove module number and any non-ASCII characters for a clean name.
         module_name = "".join(char for char in category.name.replace(
@@ -118,7 +119,7 @@ def get_module_categories(all_categories: List[CategoryChannel],
         # but falls back to the first available public channel.
         target_channel = get_channel_or_first_public_of_category(
             category, default_channel)
-        
+
         if not target_channel:
             continue
 
@@ -190,9 +191,9 @@ def get_module_categories_of_parent_category(
         if parent_category_name_query in category.name.lower().strip():
             start_index = i
             break
-    
+
     if start_index == -1:
-        return [] # Parent category not found.
+        return []  # Parent category not found.
 
     # Starting from the item after the parent, find where the module category list ends.
     # We assume the list ends when we hit a category whose name does NOT start with a digit.
@@ -201,10 +202,10 @@ def get_module_categories_of_parent_category(
         if not re.match(r'^\d', category_name):
             end_index = i
             break
-    
+
     # The slice of module categories is from after the parent up to the end marker.
     slice_start = start_index + 1
-    
+
     if end_index != -1:
         # An end marker was found, so slice up to it.
         return categories[slice_start:end_index]

@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from dataclasses import dataclass
 
 from discord import app_commands, Interaction
 import discord
@@ -29,6 +29,14 @@ MENU_TYPE_CHOICES = [
 ]
 
 
+@dataclass(frozen=True, eq=True)
+class MenuKey:
+    """A type-safe, hashable key for identifying a menu."""
+    guild_id: int
+    channel_id: int
+    menu_type: str
+
+
 @app_commands.guild_only()
 class ModuleNavigator(commands.GroupCog, name="module-navigator",
                       description="Erstellt und verwaltet Menüs, um Module in Discord-Kanälen zu navigieren."):
@@ -40,11 +48,15 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
-        self.menu_hashes = {}  # A runtime cache for menu content hashes to avoid unnecessary updates.
-        
+        # A runtime cache for menu content hashes to avoid unnecessary updates.
+        self.menu_hashes: dict[MenuKey, str] = {}
+
         # Load all existing menu configurations from the database on startup.
-        self.menus = {(cfg.guild_id, cfg.channel_id, cfg.menu_type): cfg for cfg in db.load_menu_config()}
-        
+        self.menus: dict[MenuKey, ModuleNavigatorMenuConfig] = {
+            MenuKey(cfg.guild_id, cfg.channel_id, cfg.menu_type): cfg
+            for cfg in db.load_menu_config()
+        }
+
         # Start the background task to periodically update the menus.
         self.update.start()
 
@@ -64,7 +76,6 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         Slash command to add a custom, non-module link to a navigation menu.
         This allows for adding links to important resources, channels, or specific posts.
         """
-        # Create the new custom item in the database.
         ModuleNavigatorCustomMenuItem.create(
             guild_id=interaction.guild.id,
             menu_channel_id=interaction.channel.id,
@@ -75,9 +86,10 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         )
 
         # Trigger an immediate update for all menus of this type in the current channel.
-        for menu_key, menu_config in self.menus.items():
-            if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[2] == menu_type.value:
-                await self._update_menu(menu_key, menu_config)
+        key_to_update = MenuKey(interaction.guild.id,
+                                interaction.channel.id, menu_type.value)
+        if key_to_update in self.menus:
+            await self._update_menu(self.menus[key_to_update])
 
         await interaction.response.send_message("Benutzerdefinierter Eintrag hinzugefügt!", ephemeral=True)
 
@@ -88,17 +100,16 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         Slash command to create a new module navigation menu in the current channel.
         It scans the guild's categories, generates the menu content, and posts it.
         """
-        parent_category_name = helpers.get_parent_category_name(menu_type.value)
+        parent_category_name = helpers.get_parent_category_name(
+            menu_type.value)
         if not parent_category_name:
             return await interaction.response.send_message("Ungültiger Menü-Typ.", ephemeral=True)
 
-        # Scan guild categories and build the list of module channels.
         menu_items: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = helpers.get_module_categories(
             interaction.guild.categories,
             helpers.convert_to_clean_string(parent_category_name)
         )
 
-        # Add any pre-existing custom items for this menu.
         custom_items = db.fetch_custom_menu_items_from_db(
             interaction.guild.id, interaction.channel.id, menu_type.value)
         menu_items.extend(custom_items)
@@ -106,7 +117,6 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         if not menu_items:
             return await interaction.response.send_message("Keine passenden Modul-Kanäle für dieses Menü gefunden.", ephemeral=True)
 
-        # Populate database-related fields for the newly scanned module items.
         for item in menu_items:
             if isinstance(item, ModuleNavigatorModuleItem):
                 item.guild_id = interaction.guild.id
@@ -114,37 +124,41 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                 item.menu_type = menu_type.value
 
         # If a menu of this type already exists in this channel, delete the old one first.
-        for k, existing in self.menus.items():
-            if k[0] == interaction.guild.id and k[1] == interaction.channel.id and k[2] == menu_type.value:
-                try:
-                    msg = await interaction.channel.fetch_message(existing.message_id)
-                    await msg.delete()
-                    db.delete_menu_config(k[0], k[1], k[2])
-                    db.delete_module_items(k[0], k[1], k[2])
-                except discord.NotFound:
-                    self.logger.warning(f"Could not find old menu message {existing.message_id} to delete. It might have been deleted manually.")
-                except discord.HTTPException as e:
-                    self.logger.error(f"Failed to delete old menu message {existing.message_id}: {e}")
+        key_to_delete = MenuKey(interaction.guild.id,
+                                interaction.channel.id, menu_type.value)
+        if key_to_delete in self.menus:
+            existing_config = self.menus[key_to_delete]
+            try:
+                msg = await interaction.channel.fetch_message(existing_config.message_id)
+                await msg.delete()
+                db.delete_menu_config(
+                    key_to_delete.guild_id, key_to_delete.channel_id, key_to_delete.menu_type)
+                db.delete_module_items(
+                    key_to_delete.guild_id, key_to_delete.channel_id, key_to_delete.menu_type)
+            except discord.NotFound:
+                self.logger.warning(
+                    f"Could not find old menu message {existing_config.message_id} to delete. It might have been deleted manually.")
+            except discord.HTTPException as e:
+                self.logger.error(
+                    f"Failed to delete old menu message {existing_config.message_id}: {e}")
 
         # Post the new menu message with the view.
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
-        view = ModuleNavigatorView(parent_category_name, menu_items, menu_key_str, page=0)
-        msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
+        view = ModuleNavigatorView(
+            parent_category_name, menu_items, menu_key_str, page=0)
+        msg_content = f"Kategorie: 📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
         # --- Update State & Persist ---
-        menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
-        
-        # 1. Save the new menu configuration to the database.
-        db.save_menu_config(menu_type.value, interaction.guild.id, interaction.channel.id, message.id)
-        
-        # 2. Update the runtime cache for menu hashes.
-        self.menu_hashes[menu_key] = helpers.generate_data_hash(menu_items)
+        new_key = MenuKey(interaction.guild.id,
+                          interaction.channel.id, menu_type.value)
 
-        # 3. Update the runtime cache for menu configurations.
-        self.menus[menu_key] = ModuleNavigatorMenuConfig(
-            guild_id=interaction.guild.id, channel_id=interaction.channel.id, message_id=message.id,
-            menu_type=menu_type.value)
+        db.save_menu_config(new_key.menu_type, new_key.guild_id,
+                            new_key.channel_id, message.id)
+        self.menu_hashes[new_key] = helpers.generate_data_hash(menu_items)
+        self.menus[new_key] = ModuleNavigatorMenuConfig(
+            guild_id=new_key.guild_id, channel_id=new_key.channel_id, message_id=message.id,
+            menu_type=new_key.menu_type)
 
         await interaction.response.send_message("Menü erstellt!", ephemeral=True)
 
@@ -164,57 +178,55 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         if deleted_count == 0:
             return await interaction.response.send_message("Benutzerdefinierter Eintrag mit diesem Label nicht gefunden.", ephemeral=True)
 
-        # Trigger an immediate update for all menus of this type in the current channel.
-        for menu_key, menu_config in self.menus.items():
-            if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[2] == menu_type.value:
-                await self._update_menu(menu_key, menu_config)
+        key_to_update = MenuKey(interaction.guild.id,
+                                interaction.channel.id, menu_type.value)
+        if key_to_update in self.menus:
+            await self._update_menu(self.menus[key_to_update])
 
         await interaction.response.send_message("Benutzerdefinierter Eintrag entfernt!", ephemeral=True)
 
     @tasks.loop(minutes=5)
     async def update(self):
         """A background task that runs every 5 minutes to keep menus in sync."""
-        for menu_key, menu_config in self.menus.items():
-            await self._update_menu(menu_key, menu_config)
+        for menu_config in list(self.menus.values()):
+            await self._update_menu(menu_config)
 
-    async def _update_menu(self, menu_key, menu_config):
+    async def _update_menu(self, menu_config: ModuleNavigatorMenuConfig):
         """
         The core logic for updating a single menu. It re-scans the channels,
         compares the content hash, and edits the message if changes are detected.
         """
-        guild_id, menu_channel_id, menu_type = menu_key
         guild = self.bot.get_guild(menu_config.guild_id)
+        menu_key = MenuKey(menu_config.guild_id,
+                           menu_config.channel_id, menu_config.menu_type)
+
         if not guild:
-            self.logger.warning(f"Guild {menu_config.guild_id} not found for menu {menu_key}, skipping update.")
+            self.logger.warning(
+                f"Guild {menu_config.guild_id} not found for menu {menu_key}, skipping update.")
             return
 
-        # 1. Fetch the latest data from Discord's API (live channel structure).
-        title = helpers.get_parent_category_name(menu_type)
+        title = helpers.get_parent_category_name(menu_config.menu_type)
         live_data: list[ModuleNavigatorModuleItem | ModuleNavigatorCustomMenuItem] = helpers.get_module_categories(
             guild.categories, helpers.convert_to_clean_string(title))
 
-        # 2. Fetch the latest custom items from the database.
         custom_items = db.fetch_custom_menu_items_from_db(
-            guild_id, menu_channel_id, menu_type)
+            menu_config.guild_id, menu_config.channel_id, menu_config.menu_type)
         live_data.extend(custom_items)
 
-        # 3. Generate a hash of the live data to check for changes.
         new_hash = helpers.generate_data_hash(live_data)
 
-        # 4. Persist the latest module items to the database. This ensures that
-        # on bot restart, the views can be re-created with the correct module data.
-        module_items = [item for item in live_data if isinstance(item, ModuleNavigatorModuleItem)]
+        module_items = [item for item in live_data if isinstance(
+            item, ModuleNavigatorModuleItem)]
         for item in module_items:
-            item.guild_id = guild_id
-            item.menu_channel_id = menu_channel_id
-            item.menu_type = menu_type
-        db.save_modules_to_db(guild_id, menu_channel_id, menu_type, module_items)
+            item.guild_id = menu_config.guild_id
+            item.menu_channel_id = menu_config.channel_id
+            item.menu_type = menu_config.menu_type
+        db.save_modules_to_db(
+            menu_config.guild_id, menu_config.channel_id, menu_config.menu_type, module_items)
 
-        # 5. If the hash hasn't changed, no update is needed.
         if self.menu_hashes.get(menu_key) == new_hash:
             return
 
-        # 6. If the hash has changed, edit the Discord message with an updated view.
         self.logger.info(f"Menu {menu_key} has changed, updating message...")
         try:
             channel = self.bot.get_channel(menu_config.channel_id)
@@ -222,14 +234,15 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                 channel = await self.bot.fetch_channel(menu_config.channel_id)
 
             message = await channel.fetch_message(menu_config.message_id)
-            menu_key_str = f"{guild_id}:{menu_channel_id}:{menu_type}"
-            view = ModuleNavigatorView(title=title, modules=live_data, menu_key=menu_key_str, page=0)
+            menu_key_str = f"{menu_config.guild_id}:{menu_config.channel_id}:{menu_config.menu_type}"
+            view = ModuleNavigatorView(
+                title=title, modules=live_data, menu_key=menu_key_str, page=0)
             await message.edit(view=view)
-            
-            # Update the runtime hash to prevent re-updating until the next change.
+
             self.menu_hashes[menu_key] = new_hash
         except discord.NotFound:
-            self.logger.warning(f"Channel {menu_config.channel_id} or Message {menu_config.message_id} for menu {menu_key} not found. Skipping update.")
+            self.logger.warning(
+                f"Channel {menu_config.channel_id} or Message {menu_config.message_id} for menu {menu_key} not found. Skipping update.")
         except discord.HTTPException as e:
             self.logger.error(f"Failed to update menu {menu_key}: {e}")
 

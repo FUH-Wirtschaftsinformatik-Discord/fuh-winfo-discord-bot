@@ -135,7 +135,8 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
 
         # Handle 'module' items, which link to a channel.
         if selected_item.type == 'module':
-            channel = interaction.guild.get_channel(selected_item.item.module_channel_id)
+            channel = interaction.guild.get_channel(
+                selected_item.item.module_channel_id)
             if not channel:
                 await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
                 return
@@ -143,15 +144,16 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
                 f"🔗 **Modul: {selected_item.label}**\nZum Kanal: {channel.mention}",
                 ephemeral=True
             )
-        
+
         # Handle custom 'URL' items.
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.URL:
             await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{selected_item.value}", ephemeral=True)
-        
+
         # Handle custom 'Channel' items.
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.CHANNEL:
             try:
-                channel = interaction.guild.get_channel(int(selected_item.value))
+                channel = interaction.guild.get_channel(
+                    int(selected_item.value))
                 if not channel:
                     await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
                     return
@@ -212,18 +214,20 @@ class ModuleNavigatorMenuNextButton(discord.ui.Button):
         When clicked, this button re-creates the main view with the page number incremented.
         """
         await interaction.response.defer()  # Defer response as we are editing the original message.
-        
+
         view: ModuleNavigatorView = self.view
         if not hasattr(view, 'modules') or not view.modules:
             await interaction.followup.send("Menü abgelaufen (Bot Neustart). Bitte lade das Menü mit dem /add Befehl neu.", ephemeral=True)
             return
 
-        current_page = ModuleNavigatorView.get_page_from_message(interaction.message)
+        current_page = ModuleNavigatorView.get_page_from_message(
+            interaction.message)
         next_page = current_page + 1
 
         # Edit the original message with a new view object for the next page.
         await interaction.message.edit(
-            view=ModuleNavigatorView(view.title, view.modules, self.menu_key, next_page)
+            view=ModuleNavigatorView(
+                view.title, view.modules, self.menu_key, next_page)
         )
 
 
@@ -243,15 +247,18 @@ class ModuleNavigatorMenuPreviousButton(discord.ui.Button):
         When clicked, this button re-creates the main view with the page number decremented.
         """
         await interaction.response.defer()
-        
+
         view: ModuleNavigatorView = self.view
         if not hasattr(view, 'modules') or not view.modules:
             await interaction.followup.send("Menü abgelaufen (Bot Neustart). Bitte lade das Menü mit dem /add Befehl neu.", ephemeral=True)
             return
 
-        current_page = ModuleNavigatorView.get_page_from_message(interaction.message)
-        prev_page = max(current_page - 1, 0) # Ensure page number doesn't go below 0.
+        current_page = ModuleNavigatorView.get_page_from_message(
+            interaction.message)
+        # Ensure page number doesn't go below 0.
+        prev_page = max(current_page - 1, 0)
 
         await interaction.message.edit(
-            view=ModuleNavigatorView(view.title, view.modules, self.menu_key, prev_page)
+            view=ModuleNavigatorView(
+                view.title, view.modules, self.menu_key, prev_page)
         )
