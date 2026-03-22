@@ -118,11 +118,9 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             name="📊 Wahlpflichtmodule Bereich Wirtschaftswissenschaften", value= "wahl-wiwi"),
     ])
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
-        await interaction.response.defer()
-
         parent_category_name = get_parent_category_name(menu_type.value)
         if not parent_category_name:
-            return await interaction.followup.send("Ungültiger Typ.", ephemeral=True)
+            return await interaction.response.send_message("Ungültiger Typ.", ephemeral=True)
 
         menu_items = self.get_module_categories(
             interaction.guild.categories,
@@ -130,7 +128,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         )
 
         if not menu_items:
-            return await interaction.followup.send("Keine Kategorien gefunden.", ephemeral=True)
+            return await interaction.response.send_message("Keine Kategorien gefunden.", ephemeral=True)
 
         for item in menu_items:
             item.guild_id = interaction.guild.id
@@ -169,7 +167,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         self.menus[menu_key] = MenuConfig(
             guild_id=interaction.guild.id, menu_channel_id=interaction.channel.id, message_id=message.id, menu_type=menu_type.value)
 
-        await interaction.followup.send("Menü erstellt!", ephemeral=True)
+        await interaction.response.send_message("Menü erstellt!", ephemeral=True)
 
     @tasks.loop(minutes=5)
     async def update(self):

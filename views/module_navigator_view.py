@@ -64,22 +64,20 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-
         try:
             module = next(m for m in self.modules if str(
                 m.module_number) == self.values[0])
         except StopIteration:
-            await interaction.followup.send("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
+            await interaction.response.send_message("Bot wurde neu gestartet. Bitte rufe das Menü mit dem Befehl neu auf.", ephemeral=True)
             return
 
         channel = interaction.guild.get_channel(module.module_channel_id)
 
         if not channel:
-            await interaction.followup.send("Kanal nicht gefunden.", ephemeral=True)
+            await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
             return
 
-        await interaction.followup.send(
+        await interaction.response.send_message(
             f"🔗 **Modul: {module.description[:40]} ({module.module_number})**\nKlicke auf die Schaltfläche um zum Kanal zu gelangen: ➡️{channel.mention}",
             ephemeral=True
         )
