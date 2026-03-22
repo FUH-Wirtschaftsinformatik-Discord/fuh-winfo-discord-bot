@@ -54,4 +54,3 @@ def delete_module_items(guild_id: int, menu_channel_id: int, menu_type: str):
     """Deletes all module items for a specific menu."""
     ModuleNavigatorModuleItem.delete().where((ModuleNavigatorModuleItem.guild_id == guild_id) & (
         ModuleNavigatorModuleItem.menu_channel_id == menu_channel_id) & (ModuleNavigatorModuleItem.menu_type == menu_type)).execute()
-

@@ -134,19 +134,44 @@ class ModuleNavigatorMenuSelect(discord.ui.Select):
                 await interaction.response.send_message("Ungültige Kanal-ID konfiguriert.", ephemeral=True)
 
         elif selected_item.type == ModuleNavigatorMenuItemLinkType.POST:
+            channel_id = None
+            message_id = None
+
+            # Try to parse a full Discord message URL (e.g., https://discord.com/channels/guild/channel/message)
+            match = re.search(r"channels/\d+/(\d+)/(\d+)", selected_item.value)
+            if match:
+                channel_id, message_id = match.groups()
+            else:
+                # Fallback to the 'channel_id/message_id' format
+                try:
+                    channel_id, message_id = selected_item.value.split('/')
+                except ValueError:
+                    pass  # Value is not in a recognized format
+
+            if not channel_id or not message_id:
+                await interaction.response.send_message(
+                    "Ungültige Post-ID oder URL konfiguriert. Erwartet wird entweder ein Link zur Nachricht oder 'channel_id/message_id'.",
+                    ephemeral=True)
+                return
+
             try:
-                channel_id, message_id = selected_item.value.split('/')
                 channel = interaction.guild.get_channel(int(channel_id))
+                # If channel is not in cache, try fetching it
                 if not channel:
-                    await interaction.response.send_message("Kanal nicht gefunden.", ephemeral=True)
-                    return
+                    channel = await interaction.guild.fetch_channel(int(channel_id))
+
                 message = await channel.fetch_message(int(message_id))
-                if not message:
-                    await interaction.response.send_message("Nachricht nicht gefunden.", ephemeral=True)
-                    return
+
                 await interaction.response.send_message(f"🔗 **{selected_item.label}**\n{message.jump_url}", ephemeral=True)
             except (ValueError, TypeError):
-                await interaction.response.send_message("Ungültige Post-ID konfiguriert.", ephemeral=True)
+                await interaction.response.send_message("Ungültige Post-ID oder URL konfiguriert.", ephemeral=True)
+            except discord.NotFound:
+                await interaction.response.send_message("Kanal oder Nachricht nicht gefunden.", ephemeral=True)
+            except discord.Forbidden:
+                await interaction.response.send_message("Ich habe keine Berechtigung, auf diesen Kanal oder diese Nachricht zuzugreifen.", ephemeral=True)
+            except Exception:
+                await interaction.response.send_message("Ein unerwarteter Fehler ist aufgetreten.", ephemeral=True)
+
 
 
 class ModuleNavigatorMenuNextButton(discord.ui.Button):

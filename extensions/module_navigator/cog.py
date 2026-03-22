@@ -36,7 +36,8 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
         self.bot = bot
         self.logger = logging.getLogger(__name__)
         self.menu_hashes = {}
-        self.menus = {(cfg.guild_id, cfg.channel_id, cfg.menu_type): cfg for cfg in db.load_menu_config()}
+        self.menus = {(cfg.guild_id, cfg.channel_id, cfg.menu_type)
+                       : cfg for cfg in db.load_menu_config()}
         self.update.start()
 
     @app_commands.command(name="add-custom-item", description="Fügt einen benutzerdefinierten Eintrag zu einem Menü hinzu.")
@@ -62,7 +63,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
         for menu_key, menu_config in self.menus.items():
             if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[
-                2] == menu_type.value:
+                    2] == menu_type.value:
                 await self._update_menu(menu_key, menu_config)
 
         await interaction.response.send_message("Benutzerdefinierter Eintrag hinzugefügt!", ephemeral=True)
@@ -70,7 +71,8 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
     @app_commands.command(name="add", description="Erstellt ein neues Modulnavigationsmenü in diesem Kanal.")
     @app_commands.choices(menu_type=MENU_TYPE_CHOICES)
     async def cmd_setup_menu(self, interaction: Interaction, menu_type: app_commands.Choice[str]):
-        parent_category_name = helpers.get_parent_category_name(menu_type.value)
+        parent_category_name = helpers.get_parent_category_name(
+            menu_type.value)
         if not parent_category_name:
             return await interaction.response.send_message("Ungültiger Typ.", ephemeral=True)
 
@@ -101,22 +103,26 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
                     db.delete_menu_config(k[0], k[1], k[2])
                     db.delete_module_items(k[0], k[1], k[2])
                 except discord.NotFound:
-                    self.logger.warning(f"Could not find message for menu {k} to delete. It might have been deleted manually.")
+                    self.logger.warning(
+                        f"Could not find message for menu {k} to delete. It might have been deleted manually.")
                 except discord.HTTPException as e:
-                    self.logger.error(f"Failed to delete old menu message for {k}: {e}")
+                    self.logger.error(
+                        f"Failed to delete old menu message for {k}: {e}")
 
         # Send New Menu
         menu_key_str = f"{interaction.guild.id}:{interaction.channel.id}:{menu_type.value}"
-        view = ModuleNavigatorView(parent_category_name, menu_items, menu_key_str, page=0)
+        view = ModuleNavigatorView(
+            parent_category_name, menu_items, menu_key_str, page=0)
         msg_content = f"📚 **{parent_category_name}**\nWähle ein Modul:"
         message = await interaction.channel.send(content=msg_content, view=view)
 
-        menu_key = (interaction.guild.id, interaction.channel.id, menu_type.value)
-        
+        menu_key = (interaction.guild.id,
+                    interaction.channel.id, menu_type.value)
+
         # Update State & Persist
         self.menu_hashes[menu_key] = helpers.generate_data_hash(menu_items)
         db.save_menu_config(menu_type.value, interaction.guild.id,
-                          interaction.channel.id, message.id)
+                            interaction.channel.id, message.id)
 
         # Refresh local cache
         self.menus[menu_key] = ModuleNavigatorMenuConfig(
@@ -140,7 +146,7 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
 
         for menu_key, menu_config in self.menus.items():
             if menu_key[0] == interaction.guild.id and menu_key[1] == interaction.channel.id and menu_key[
-                2] == menu_type.value:
+                    2] == menu_type.value:
                 await self._update_menu(menu_key, menu_config)
 
         await interaction.response.send_message("Benutzerdefinierter Eintrag entfernt!", ephemeral=True)
