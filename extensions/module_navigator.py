@@ -221,12 +221,14 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
     def get_module_categories(self, all_categories: List[CategoryChannel],
                               parent_category: str,
                               default_channel: str = "diskussion-und-infos") -> list[ModuleItem]:
-        module_categories = self.get_module_categories_of_parent_category(
+        # First filter categories to those that are under the specified parent category
+        all_module_categories = self.get_module_categories_of_parent_category(
             all_categories, parent_category)
+        public_categories = self.filter_public_categories_and_channels(all_module_categories)
 
         menu_items: list[ModuleItem] = []
 
-        for category in module_categories:
+        for category in public_categories:
             # Extract the module number from the category name, if it exists
             module_number = ""
             has_module_number = re.search(r'\d+', category.name)
@@ -323,6 +325,23 @@ class ModuleNavigator(commands.GroupCog, name="module-navigator",
             return test_channels
 
         return categories[start_index:end_index]
+
+    def filter_public_categories_and_channels(self, categories: list[discord.CategoryChannel]) -> list[discord.CategoryChannel]:
+        """
+        Filters a list of categories to return only those that are public
+        and contain at least one public text channel.
+        """
+        public_categories = []
+        for category in categories:
+            everyone_role = category.guild.default_role
+            if category.permissions_for(everyone_role).view_channel:
+                has_public_channel = any(
+                    channel.permissions_for(everyone_role).view_channel
+                    for channel in category.text_channels
+                )
+                if has_public_channel:
+                    public_categories.append(category)
+        return public_categories
 
 
 async def setup(bot: commands.Bot) -> None:
