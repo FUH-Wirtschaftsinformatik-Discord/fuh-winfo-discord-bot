@@ -66,7 +66,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStati
 
     return semester_statistics
 
-async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
+async def generate_plot_data(module_number: int,module_title: str, limit_semesters=30) -> dict:
     """
     Extract grade statistics for a module from the database.
     Returns a dictionary with all relevant data for plotting.
