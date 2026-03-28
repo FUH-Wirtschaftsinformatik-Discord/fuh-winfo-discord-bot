@@ -163,7 +163,7 @@ class GradeStatisticsScraper:
                     examination_period=examination_period
                 )
                 # Parse grades and participants
-                module_participants = 0
+                participant_count = 0
                 module_very_good = 0
                 module_good = 0
                 module_satisfactory = 0
@@ -175,7 +175,7 @@ class GradeStatisticsScraper:
                         self.logger.info(f"Data privacy notice found for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Marking as anonymous.")  
                     else:
                         if row_3[0].strip().isnumeric():
-                            module_participants = int(row_3[0].strip())
+                            participant_count = int(row_3[0].strip())
                         if row_3[1].strip().isnumeric():
                             module_very_good = int(row_3[1].strip())                    
                         if row_3[2].strip().isnumeric():
@@ -194,24 +194,27 @@ class GradeStatisticsScraper:
                 new_extracted.good = module_good
                 new_extracted.satisfactory = module_satisfactory
                 new_extracted.sufficient = module_sufficient
-                new_extracted.insufficient = module_insufficient_grade
+                new_extracted.insufficient = module_insufficient_grade             
+                new_extracted.average_grade = self.get_average_grade(new_extracted, participant_count)
 
-                # Calculate average grade
-                total_passed = new_extracted.very_good + new_extracted.good + new_extracted.satisfactory + new_extracted.sufficient
-                if total_passed > 0:
-                    weighted_sum = (1.25 * new_extracted.very_good) + (2.05 * new_extracted.good) + (3.05 * new_extracted.satisfactory) + (3.8 * new_extracted.sufficient)
-                    new_extracted.average_grade = weighted_sum / total_passed
-                else:
-                    new_extracted.average_grade = 0.0
-
-                # Skip modules with zero participants
-                # if new_extracted.get_participant_count() == 0 and module_participants == 0: 
-                #     self.logger.info(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
-                #     continue
                 extracted_grade_statistics.append(new_extracted)
-                self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
+                self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {participant_count} participants.")
                 self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         return extracted_grade_statistics
+
+    def get_average_grade(self, new_extracted: ExtractedGradeStatistics, participant_count: int) -> float:
+        weighted_sum = (
+                    1 * new_extracted.very_good +
+                    2 * new_extracted.good +
+                    3 * new_extracted.satisfactory +
+                    4 * new_extracted.sufficient +
+                    5 * new_extracted.insufficient
+                )
+                       
+        if participant_count == 0:
+            return 0.0 
+            
+        return round(weighted_sum / participant_count, 2)       
 
     async def get_changes_for_grade_statistics(self, modules: list[ExtractedGradeStatistics]) -> dict:
         """
