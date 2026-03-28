@@ -344,6 +344,7 @@ class SemesterStatistics:
     sufficient: List
     insufficient: List
     no_statistics: List
+    average_grade: List
 
 
 class ModuleNavigatorMenuType(StrEnum):

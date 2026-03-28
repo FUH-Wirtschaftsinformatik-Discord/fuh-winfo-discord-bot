@@ -35,6 +35,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStati
     sufficient_labels = []
     insufficient_labels = []
     no_statistics_labels = []
+    average_grade_labels = []
 
     for module in grade_statistics:
         # Build semester label
@@ -54,6 +55,7 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStati
         sufficient_labels.append(module.sufficient)
         insufficient_labels.append(module.insufficient)
         no_statistics_labels.append(0)
+        average_grade_labels.append(module.average_grade)
     
     semester_statistics = SemesterStatistics(semester_labels,
                              participant_labels, 
@@ -62,11 +64,12 @@ def build_labels(grade_statistics: list[ModuleGradeStatistics]) -> SemesterStati
                              satisfactory_labels,
                              sufficient_labels,
                              insufficient_labels,
-                             no_statistics_labels)
+                             no_statistics_labels,
+                             average_grade_labels)
 
     return semester_statistics
 
-async def generate_plot_data(module_number: int,module_title: str, limit_semesters=30) -> dict:
+async def generate_plot_data(module_number: int,module_title: str, limit_semesters=20) -> dict:
     """
     Extract grade statistics for a module from the database.
     Returns a dictionary with all relevant data for plotting.
@@ -106,7 +109,8 @@ async def generate_plot_data(module_number: int,module_title: str, limit_semeste
         "befriedigend": semester_statistics.satisfactory,
         "ausreichend": semester_statistics.sufficient,
         "nicht ausreichend": semester_statistics.insufficient,
-        "keine Daten verfügbar": semester_statistics.no_statistics
+        "keine Daten verfügbar": semester_statistics.no_statistics,
+        "average_grade": semester_statistics.average_grade
     }
 
     return plot_data
@@ -191,10 +195,14 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='data/plots'
     ax.set_ylabel("Prozent der Studierenden")
     ax.set_xticks(range(len(df["Semester"])))
     ax.set_xticklabels(df["Semester"], rotation=45, ha="right")
-    ax.set_ylim(0, 110)  # y-axis scale higher than 100%
+    ax.set_ylim(0, 120)  # y-axis scale higher than 100% to make space for average grade labels
     
     # Legend is outside to the right
     ax.legend(title="Bewertung", bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=10)
+
+    # Add average grade labels on top of bars
+    for i, avg in enumerate(df["average_grade"]):
+        ax.text(i, 112, f'Ø {avg:.2f}', ha='center', va='bottom', fontsize=9, color='black', fontweight='bold')
 
     # Source text
     currentTime = datetime.now().strftime("%d.%m.%Y %H:%M")
@@ -202,7 +210,7 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='data/plots'
     ax.figure.text(0.99, 0.01,source_text, ha='right', va='bottom', fontsize=8, color='grey')
     
     # Save plot to file
-    plt.tight_layout(rect=[0, 0.03, 1, 1])
+    plt.tight_layout(rect=[0, 0.03, 0.9, 1])
 
     plt.savefig(full_output_filename, dpi=300)
     plt.close()
