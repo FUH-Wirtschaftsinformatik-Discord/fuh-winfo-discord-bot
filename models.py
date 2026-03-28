@@ -295,6 +295,7 @@ class ModuleGradeStatistics(BaseModel):
     satisfactory = IntegerField(default=0)
     sufficient = IntegerField(default=0)
     insufficient = IntegerField(default=0)
+    average_grade = FloatField(default=0.0)
 
     class Meta:
         primary_key = CompositeKey(
@@ -325,6 +326,7 @@ class ExtractedGradeStatistics:
         self.satisfactory = 0
         self.sufficient = 0
         self.insufficient = 0
+        self.average_grade = 0.0
 
     def get_participant_count(self) -> int:
         participants = self.very_good + self.good + \
@@ -342,6 +344,7 @@ class SemesterStatistics:
     sufficient: List
     insufficient: List
     no_statistics: List
+    average_grade: List
 
 
 class ModuleNavigatorMenuType(StrEnum):

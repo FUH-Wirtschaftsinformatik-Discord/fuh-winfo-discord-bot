@@ -163,7 +163,7 @@ class GradeStatisticsScraper:
                     examination_period=examination_period
                 )
                 # Parse grades and participants
-                module_participants = 0
+                participant_count = 0
                 module_very_good = 0
                 module_good = 0
                 module_satisfactory = 0
@@ -175,7 +175,7 @@ class GradeStatisticsScraper:
                         self.logger.info(f"Data privacy notice found for module {module_number} - {module_name} in semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period}. Marking as anonymous.")  
                     else:
                         if row_3[0].strip().isnumeric():
-                            module_participants = int(row_3[0].strip())
+                            participant_count = int(row_3[0].strip())
                         if row_3[1].strip().isnumeric():
                             module_very_good = int(row_3[1].strip())                    
                         if row_3[2].strip().isnumeric():
@@ -194,15 +194,27 @@ class GradeStatisticsScraper:
                 new_extracted.good = module_good
                 new_extracted.satisfactory = module_satisfactory
                 new_extracted.sufficient = module_sufficient
-                new_extracted.insufficient = module_insufficient_grade
-                # Skip modules with zero participants
-                # if new_extracted.get_participant_count() == 0 and module_participants == 0: 
-                #     self.logger.info(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
-                #     continue
+                new_extracted.insufficient = module_insufficient_grade             
+                new_extracted.average_grade = self.get_average_grade(new_extracted, participant_count)
+
                 extracted_grade_statistics.append(new_extracted)
-                self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {module_participants} participants.")
+                self.logger.info(f"Added module: {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} with {participant_count} participants.")
                 self.logger.info(f"Grades: Very Good: {module_very_good}, Good: {module_good}, Satisfactory: {module_satisfactory}, Sufficient: {module_sufficient}, Insufficient: {module_insufficient_grade}")
         return extracted_grade_statistics
+
+    def get_average_grade(self, new_extracted: ExtractedGradeStatistics, participant_count: int) -> float:
+        weighted_sum = (
+                    1 * new_extracted.very_good +
+                    2 * new_extracted.good +
+                    3 * new_extracted.satisfactory +
+                    4 * new_extracted.sufficient +
+                    5 * new_extracted.insufficient
+                )
+                       
+        if participant_count == 0:
+            return 0.0 
+            
+        return round(weighted_sum / participant_count, 2)       
 
     async def get_changes_for_grade_statistics(self, modules: list[ExtractedGradeStatistics]) -> dict:
         """
@@ -238,7 +250,8 @@ class GradeStatisticsScraper:
                     "good": changed_module.good,
                     "satisfactory": changed_module.satisfactory,
                     "sufficient": changed_module.sufficient,
-                    "insufficient": changed_module.insufficient
+                    "insufficient": changed_module.insufficient,
+                    "average_grade": changed_module.average_grade
                 })
                 continue
             # If it exists, check if any grades have changed
@@ -247,7 +260,8 @@ class GradeStatisticsScraper:
                 existing_study_module.good != changed_module.good or
                 existing_study_module.satisfactory != changed_module.satisfactory or
                 existing_study_module.sufficient != changed_module.sufficient or
-                existing_study_module.insufficient != changed_module.insufficient
+                existing_study_module.insufficient != changed_module.insufficient or
+                existing_study_module.average_grade != changed_module.average_grade
             )
             if has_module_changed:
                 change_container["changed_modules"].append({
@@ -257,7 +271,8 @@ class GradeStatisticsScraper:
                         "good": changed_module.good,
                         "satisfactory": changed_module.satisfactory,
                         "sufficient": changed_module.sufficient,
-                        "insufficient": changed_module.insufficient
+                        "insufficient": changed_module.insufficient,
+                        "average_grade": changed_module.average_grade
                     }
                 })
         return change_container
@@ -281,7 +296,8 @@ class GradeStatisticsScraper:
                         good=module["good"],
                         satisfactory=module["satisfactory"],
                         sufficient=module["sufficient"],
-                        insufficient=module["insufficient"]
+                        insufficient=module["insufficient"],
+                        average_grade=module["average_grade"]
                     )
                     txn.commit()
             except Exception as e:
@@ -308,6 +324,7 @@ class GradeStatisticsScraper:
                     existing_study_module.satisfactory = new_grades["satisfactory"]
                     existing_study_module.sufficient = new_grades["sufficient"]
                     existing_study_module.insufficient = new_grades["insufficient"]
+                    existing_study_module.average_grade = new_grades["average_grade"]
                     existing_study_module.save()
                     txn.commit()
             except Exception as e:
