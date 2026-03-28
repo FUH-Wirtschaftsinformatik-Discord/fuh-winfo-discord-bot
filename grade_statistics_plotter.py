@@ -136,7 +136,7 @@ def draw_stacked_bars(ax: Axes, df_percent: pd.DataFrame, semester_df: pd.DataFr
         else:
             bottom += df_percent[category]
     
-    ax.bar_label(bars, padding=3, labels=participants_labels, fontsize=8, color='black')
+    # ax.bar_label(bars, padding=3, labels=participants_labels, fontsize=8, color='black')
 
 def add_percentage_labels(ax: Axes, df_percent: pd.DataFrame, df_semester: pd.DataFrame, categories: list):
     """
@@ -202,7 +202,11 @@ async def plot_diagram_as_complex_file(data: dict, output_directory='data/plots'
 
     # Add average grade labels on top of bars
     for i, avg in enumerate(df["average_grade"]):
-        ax.text(i, 112, f'Ø {avg:.2f}', ha='center', va='bottom', fontsize=9, color='black', fontweight='bold')
+        ax.text(i, 112, f'Ø {avg:.2f}', ha='center', va='bottom', fontsize=9, color='black')
+
+    # Add participant labels below average grade
+    for i, part in enumerate(participants):
+        ax.text(i, 108, f'N={part}', ha='center', va='bottom', fontsize=9, color='black')
 
     # Source text
     currentTime = datetime.now().strftime("%d.%m.%Y %H:%M")
