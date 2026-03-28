@@ -195,6 +195,15 @@ class GradeStatisticsScraper:
                 new_extracted.satisfactory = module_satisfactory
                 new_extracted.sufficient = module_sufficient
                 new_extracted.insufficient = module_insufficient_grade
+
+                # Calculate average grade
+                total_passed = new_extracted.very_good + new_extracted.good + new_extracted.satisfactory + new_extracted.sufficient
+                if total_passed > 0:
+                    weighted_sum = (1.25 * new_extracted.very_good) + (2.05 * new_extracted.good) + (3.05 * new_extracted.satisfactory) + (3.8 * new_extracted.sufficient)
+                    new_extracted.average_grade = weighted_sum / total_passed
+                else:
+                    new_extracted.average_grade = 0.0
+
                 # Skip modules with zero participants
                 # if new_extracted.get_participant_count() == 0 and module_participants == 0: 
                 #     self.logger.info(f"Skipping: Module {module_number} - {module_name} for semester {year} ({'SS' if is_summer_semester else 'WS'}) - {examination_period} has zero participants.")
@@ -238,7 +247,8 @@ class GradeStatisticsScraper:
                     "good": changed_module.good,
                     "satisfactory": changed_module.satisfactory,
                     "sufficient": changed_module.sufficient,
-                    "insufficient": changed_module.insufficient
+                    "insufficient": changed_module.insufficient,
+                    "average_grade": changed_module.average_grade
                 })
                 continue
             # If it exists, check if any grades have changed
@@ -247,7 +257,8 @@ class GradeStatisticsScraper:
                 existing_study_module.good != changed_module.good or
                 existing_study_module.satisfactory != changed_module.satisfactory or
                 existing_study_module.sufficient != changed_module.sufficient or
-                existing_study_module.insufficient != changed_module.insufficient
+                existing_study_module.insufficient != changed_module.insufficient or
+                existing_study_module.average_grade != changed_module.average_grade
             )
             if has_module_changed:
                 change_container["changed_modules"].append({
@@ -257,7 +268,8 @@ class GradeStatisticsScraper:
                         "good": changed_module.good,
                         "satisfactory": changed_module.satisfactory,
                         "sufficient": changed_module.sufficient,
-                        "insufficient": changed_module.insufficient
+                        "insufficient": changed_module.insufficient,
+                        "average_grade": changed_module.average_grade
                     }
                 })
         return change_container
@@ -281,7 +293,8 @@ class GradeStatisticsScraper:
                         good=module["good"],
                         satisfactory=module["satisfactory"],
                         sufficient=module["sufficient"],
-                        insufficient=module["insufficient"]
+                        insufficient=module["insufficient"],
+                        average_grade=module["average_grade"]
                     )
                     txn.commit()
             except Exception as e:
@@ -308,6 +321,7 @@ class GradeStatisticsScraper:
                     existing_study_module.satisfactory = new_grades["satisfactory"]
                     existing_study_module.sufficient = new_grades["sufficient"]
                     existing_study_module.insufficient = new_grades["insufficient"]
+                    existing_study_module.average_grade = new_grades["average_grade"]
                     existing_study_module.save()
                     txn.commit()
             except Exception as e:
