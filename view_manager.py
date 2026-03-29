@@ -79,8 +79,5 @@ class ViewManager:
 
     def prepare_buttons(self, buttons, view_id=None):
         for config in buttons:
-            config["custom_id"] = config.get("custom_id", "") + ("" if not view_id else "_" + str(view_id))
-
-
-
-
+            config["custom_id"] = config.get(
+                "custom_id", "") + ("" if not view_id else "_" + str(view_id))

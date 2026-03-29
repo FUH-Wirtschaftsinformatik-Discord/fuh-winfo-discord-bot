@@ -4,7 +4,7 @@ Description=Run prod-plotter.service every 24 hours
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=24h
+OnUnitActiveSec=1h
 AccuracySec=1min
 Unit=prod-plotter.service
 
