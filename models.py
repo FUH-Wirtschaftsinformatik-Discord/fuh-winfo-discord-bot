@@ -186,40 +186,40 @@ class Appointment(BaseModel):
     def get_ics_file(self):
         fmt = "%Y%m%dT%H%M"
         appointment = f"BEGIN:VCALENDAR\n" \
-            f"PRODID:Boty McBotface\n" \
-            f"VERSION:2.0\n" \
-            f"BEGIN:VTIMEZONE\n" \
-            f"TZID:Europe/Berlin\n" \
-            f"BEGIN:DAYLIGHT\n" \
-            f"TZOFFSETFROM:+0100\n" \
-            f"TZOFFSETTO:+0200\n" \
-            f"TZNAME:CEST\n" \
-            f"DTSTART:19700329T020000\n" \
-            f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\n" \
-            f"END:DAYLIGHT\n" \
-            f"BEGIN:STANDARD\n" \
-            f"TZOFFSETFROM:+0200\n" \
-            f"TZOFFSETTO:+0100\n" \
-            f"TZNAME:CET\n" \
-            f"DTSTART:19701025T030000\n" \
-            f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\n" \
-            f"END:STANDARD\n" \
-            f"END:VTIMEZONE\n" \
-            f"BEGIN:VEVENT\n" \
-            f"DTSTAMP:{datetime.now().strftime(fmt)}00Z\n" \
-            f"UID:{self.uuid}\n" \
-            f"SUMMARY:{self.title}\n"
-        appointment += f"RRULE:FREQ=DAILY;INTERVAL={self.recurring}\n" if self.recurring else f""
+                      f"PRODID:Kitty Cat\n" \
+                      f"VERSION:2.0\n" \
+                      f"BEGIN:VTIMEZONE\n" \
+                      f"TZID:Europe/Berlin\n" \
+                      f"BEGIN:DAYLIGHT\n" \
+                      f"TZOFFSETFROM:+0100\n" \
+                      f"TZOFFSETTO:+0200\n" \
+                      f"TZNAME:CEST\n" \
+                      f"DTSTART:19700329T020000\n" \
+                      f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\n" \
+                      f"END:DAYLIGHT\n" \
+                      f"BEGIN:STANDARD\n" \
+                      f"TZOFFSETFROM:+0200\n" \
+                      f"TZOFFSETTO:+0100\n" \
+                      f"TZNAME:CET\n" \
+                      f"DTSTART:19701025T030000\n" \
+                      f"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\n" \
+                      f"END:STANDARD\n" \
+                      f"END:VTIMEZONE\n" \
+                      f"BEGIN:VEVENT\n" \
+                      f"DTSTAMP:{datetime.now().strftime(fmt)}00Z\n" \
+                      f"UID:{self.uuid}\n" \
+                      f"SUMMARY:{self.title}\n"
+        appointment += f"RRULE:FREQ=DAILY;INTERVAL={self.recurring}\n" if self.recurring else ""
         appointment += f"DTSTART;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
-            f"DTEND;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
-            f"TRANSP:OPAQUE\n" \
-            f"BEGIN:VALARM\n" \
-            f"ACTION:DISPLAY\n" \
-            f"TRIGGER;VALUE=DURATION:-PT{self.reminder}M\n" \
-            f"DESCRIPTION:{self.description}\n" \
-            f"END:VALARM\n" \
-            f"END:VEVENT\n" \
-            f"END:VCALENDAR"
+                       f"DTEND;TZID=Europe/Berlin:{self.date_time.strftime(fmt)}00\n" \
+                       f"TRANSP:OPAQUE\n" \
+                       f"BEGIN:VALARM\n" \
+                       f"ACTION:DISPLAY\n" \
+                       f"TRIGGER;VALUE=DURATION:-PT{self.reminder}M\n" \
+                       f"DESCRIPTION:{self.description}\n" \
+                       f"END:VALARM\n" \
+                       f"END:VEVENT\n" \
+                       f"END:VCALENDAR"
         ics_file = io.BytesIO(appointment.encode("utf-8"))
         return ics_file
 
