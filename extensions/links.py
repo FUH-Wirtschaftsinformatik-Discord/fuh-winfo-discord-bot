@@ -13,7 +13,7 @@ class Links(commands.GroupCog, name="links", description="Linkverwaltung für Ka
 
     @app_commands.command(name="show", description="Zeige Links für diesen Kanal an.")
     @app_commands.describe(category="Zeige nur Links für diese Kategorie an.", public="Zeige die Linkliste für alle.")
-    async def cmd_show(self, interaction: Interaction, category: str = None, public: bool = True):
+    async def cmd_show(self, interaction: Interaction, category: str = None, public: bool = False):
         await interaction.response.defer(ephemeral=not public)
 
         message = "### __Folgende Links sind in diesem Channel hinterlegt__\n"
