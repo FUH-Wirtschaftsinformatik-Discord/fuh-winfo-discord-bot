@@ -20,7 +20,11 @@ PIN_EMOJI = "📌"
 LOG_LEVEL_STR = os.getenv('LOG_LEVEL', 'INFO').upper()
 log_level = getattr(logging, LOG_LEVEL_STR, logging.INFO)
 
-intents = Intents.all()
+# Only the intents the active code needs: members for on_member_join (welcome).
+# Nothing reads presence. Message content is not needed because mod_mail only reads
+# DM content, which Discord delivers without the intent.
+intents = Intents.default()
+intents.members = True
 logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] [%(name)s]: %(message)s')
 _log = logging.getLogger(__name__)
 
