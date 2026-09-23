@@ -76,7 +76,8 @@ celerybeat-schedule.*
 *.env
 .env 
 .venv 
-env/ 
+env/
+envs/
 venv/ 
 ENV/ 
 env.bak/ 
@@ -120,3 +121,6 @@ data/
 *.sqlite3-wal
 *.json
 *.bak 
+
+# Claude-Arbeitsdateien (Briefings, Berichte, Projektkontext)
+claude-docs/
