@@ -32,8 +32,13 @@ class Copyright(commands.Cog):
         await interaction.response.send_message(COPYRIGHT_TEXT)
 
     async def reply_with_notice(self, interaction: Interaction, message: Message) -> None:
-        await message.reply(COPYRIGHT_TEXT, mention_author=True)
-        await interaction.response.send_message("Hinweis als Antwort gesendet.", ephemeral=True)
+        # Answer through the interaction, not with message.reply(): interaction responses work in every
+        # channel, including private ones the bot cannot see. The author mention and the jump link replace
+        # the reply reference.
+        await interaction.response.send_message(
+            f"{message.author.mention} {COPYRIGHT_TEXT}\n-# Bezieht sich auf {message.jump_url}",
+            allowed_mentions=discord.AllowedMentions(users=[message.author]),
+        )
 
 
 async def setup(bot: commands.Bot) -> None:
