@@ -72,7 +72,7 @@ class TextCommands(commands.GroupCog, name="commands", description="Text Command
     async def cmd_edit(self, interaction: Interaction, cmd: str, id: int, text: str):
         await interaction.response.defer(ephemeral=True)
 
-        if not utils.is_mod(interaction.user, self.bot):
+        if not utils.is_mod(interaction.user):
             await interaction.edit_original_response(content="Du hast nicht die notwendigen Berechtigungen, "
                                                              "um dieses Command zu benutzen!")
             return
@@ -96,7 +96,7 @@ class TextCommands(commands.GroupCog, name="commands", description="Text Command
     async def cmd_command_remove(self, interaction: Interaction, cmd: str, id: int = None):
         await interaction.response.defer(ephemeral=True)
 
-        if not utils.is_mod(interaction.user, self.bot):
+        if not utils.is_mod(interaction.user):
             await interaction.edit_original_response(content="Du hast nicht die notwendigen Berechtigungen, "
                                                              "um dieses Command zu benutzen!")
             return

@@ -38,11 +38,10 @@ async def send_dm(user, message, embed=None):
 #
 #     return False
 
-def is_mod(user: Member, bot):
-    if user.get_role(int(os.getenv("DISCORD_MOD_ROLE"))):
-        return True
+def is_mod(user: Member) -> bool:
+    """ Whether the member holds the moderator role from DISCORD_MOD_ROLE """
 
-    return False
+    return user.get_role(int(os.getenv("DISCORD_MOD_ROLE"))) is not None
 
 
 def is_valid_time(time):
