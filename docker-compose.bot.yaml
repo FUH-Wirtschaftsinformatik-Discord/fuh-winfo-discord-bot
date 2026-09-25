@@ -12,5 +12,9 @@ services:
       - docker.env
     volumes:
       - ./data:/app/data
+    # Python runs as PID 1 and ignores SIGTERM, so "docker compose stop" would kill the bot
+    # after 10 s (exit 137). SIGINT raises KeyboardInterrupt, which discord.py handles by
+    # closing the gateway session cleanly.
+    stop_signal: SIGINT
 
 
