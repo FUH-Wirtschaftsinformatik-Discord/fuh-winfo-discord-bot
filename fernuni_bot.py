@@ -85,7 +85,10 @@ class Boty(commands.Bot):
 
         return activated_extensions     
 
-bot = Boty(command_prefix=')', help_command=None, activity=Game(ACTIVITY), owner_id=OWNER, intents=intents)
+# All commands are slash commands. A mention-only prefix keeps discord.py from warning at startup
+# that the message content intent is missing for prefix commands.
+bot = Boty(command_prefix=commands.when_mentioned, help_command=None, activity=Game(ACTIVITY), owner_id=OWNER,
+           intents=intents)
 
 
 def get_reaction(reactions):
