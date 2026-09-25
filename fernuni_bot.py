@@ -135,7 +135,13 @@ async def on_raw_reaction_remove(payload):
 
 @bot.event
 async def on_thread_create(thread: Thread) -> None:
+    """ Mention the configured role in every new thread so its members get added to it.
+    A role id of 0 in settings switches this off. """
+
     thread_notification_role_id = bot.get_settings(thread.guild.id).thread_notification_role_id
+    if not thread_notification_role_id:
+        return
+
     msg = await thread.send(f"<@&{thread_notification_role_id}>")
     await msg.delete()
 
