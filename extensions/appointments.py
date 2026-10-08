@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -8,6 +9,8 @@ from discord.ext import tasks, commands
 
 from models import Appointment, Attendee
 from views.appointment_view import AppointmentView
+
+_log = logging.getLogger(__name__)
 
 
 async def send_notification(appointment, channel):
@@ -25,6 +28,7 @@ async def send_notification(appointment, channel):
 class Appointments(commands.GroupCog, name="appointments", description="Handle Appointments in Channels"):
     def __init__(self, bot):
         self.bot = bot
+        self._access_warned: set[int] = set()
         self.timer.start()
 
     @tasks.loop(minutes=1)
@@ -56,6 +60,14 @@ class Appointments(commands.GroupCog, name="appointments", description="Handle A
                         Appointment.update(reminder_sent=True).where(Appointment.id == appointment.id).execute()
                 except errors.NotFound:
                     appointment.delete_instance(recursive=True)
+                except errors.Forbidden:
+                    # The bot cannot see or write the channel (private channel without an overwrite for its
+                    # role). Log once and carry on: an unhandled exception here would stop the loop and with
+                    # it the reminders for every other appointment.
+                    if appointment.id not in self._access_warned:
+                        self._access_warned.add(appointment.id)
+                        _log.warning("Cannot send reminder for appointment %s (%s) in channel %s: missing access",
+                                     appointment.id, appointment.title, appointment.channel)
 
     @timer.before_loop
     async def before_timer(self):
@@ -70,6 +82,14 @@ class Appointments(commands.GroupCog, name="appointments", description="Handle A
     async def cmd_add_appointment(self, interaction: Interaction, title: str, date: str, time: str, reminder: int,
                                   description: str = "", recurring: int = 0) -> None:
         """ Add an appointment to a channel """
+        if not interaction.app_permissions.view_channel:
+            # Reminders are sent via channel.send, which needs channel access. Refuse early instead of
+            # creating an appointment that can never remind anyone.
+            await interaction.response.send_message(
+                "In diesem Channel kann ich keine Erinnerungen schicken, weil ich ihn nicht sehe. "
+                "Bitte die Admins um Zugriff für Kitty Cat bitten.", ephemeral=True)
+            return
+
         channel = interaction.channel
         author_id = interaction.user.id
         try:
@@ -126,6 +146,11 @@ class Appointments(commands.GroupCog, name="appointments", description="Handle A
                     )
                 except errors.NotFound:
                     appointment.delete_instance(recursive=True)
+                except errors.Forbidden:
+                    await interaction.edit_original_response(
+                        content="Ich sehe diesen Channel nicht und kann die Termin-Posts deshalb nicht verlinken. "
+                                "Bitte die Admins um Zugriff für Kitty Cat bitten.")
+                    return
 
             # await channel.send(embed=embed)
 
