@@ -45,6 +45,8 @@ class ModMail(commands.Cog):
             try:
                 await channel.send(orig_message.content, files=files, stickers=orig_message.stickers)
             except discord.Forbidden:
+                if not orig_message.stickers:
+                    raise  # not a sticker problem, report it to the sender below
                 # Stickers from other servers need "Use External Stickers"; fall back to their URL.
                 await channel.send(f"{orig_message.content}\n+ Sticker:\n{orig_message.stickers[0].url}", files=files)
         except (discord.Forbidden, discord.NotFound):

@@ -68,9 +68,17 @@ class Appointments(commands.GroupCog, name="appointments", description="Handle A
                         self._access_warned.add(appointment.id)
                         _log.warning("Cannot send reminder for appointment %s (%s) in channel %s: missing access",
                                      appointment.id, appointment.title, appointment.channel)
+                except Exception:
+                    # Anything else (e.g. HTTP 400 for an embed over Discord's limits) must not stop the
+                    # loop either. Log it once with traceback and keep serving the other appointments.
+                    if appointment.id not in self._access_warned:
+                        self._access_warned.add(appointment.id)
+                        _log.exception("Reminder for appointment %s (%s) in channel %s failed",
+                                       appointment.id, appointment.title, appointment.channel)
 
     @timer.before_loop
     async def before_timer(self):
+        await self.bot.wait_until_ready()
         await asyncio.sleep(60 - datetime.now().second)
 
     @app_commands.command(name="add", description="Füge dem Kanal einen neuen Termin hinzu.")

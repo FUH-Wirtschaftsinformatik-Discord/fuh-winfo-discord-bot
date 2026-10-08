@@ -83,8 +83,7 @@ class AppointmentView(discord.ui.View):
     async def delete(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer(thinking=False)
         appointment = Appointment.get_or_none(Appointment.message == interaction.message.id)
-        if appointment is None or not (interaction.user.id == appointment.author or interaction.user.get_role(
-                523094235097071616) is not None):
+        if appointment is None or not (interaction.user.id == appointment.author or utils.is_mod(interaction.user)):
             return
 
         appointment.delete_instance(recursive=True)
